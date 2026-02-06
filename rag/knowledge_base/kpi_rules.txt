@@ -1,0 +1,5 @@
+For time-series data, calculate Growth Rate (%).
+For sales data, calculate Total Revenue and Average Order Value.
+For customer data, calculate Churn Rate and Customer Lifetime Value (CLV).
+If 'profit' and 'sales' columns exist, calculate Profit Margin.
+Identify top performing products by sales volume.

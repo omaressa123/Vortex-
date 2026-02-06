@@ -1,0 +1,6 @@
+Time-series data should be visualized using a Line Chart.
+Categorical comparisons should use Bar Charts.
+Part-to-whole relationships can use Pie Charts or Donut Charts (use sparingly).
+Correlations between two numeric variables should use Scatter Plots.
+Distributions of a single numeric variable should use Histograms or Box Plots.
+Use Heatmaps for correlation matrices.

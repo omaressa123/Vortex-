@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Vortex - AI Dashboard Generator</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+  <style>
+    /* Add selection style */
+    .layout-card.selected {
+        border: 3px solid #f16363;
+        transform: scale(1.05);
+    }
+  </style>
+</head>
+<body>
+
+<div class="hero">
+  <nav>
+    <h2>Vortex</h2>
+    <!-- <a href="/login"><button class="nav-btn">Login</button></a> -->
+  </nav>
+
+  <div class="hero-content">
+    <h1 id="vortex" class="vortex-logo">
+      <span>V</span><span>O</span><span>R</span><span>T</span><span>E</span><span>X</span>
+    </h1>
+    <h1>Template-Driven Auto Dashboard</h1>
+    <p>
+      1. Select a Template below. <br>
+      2. Upload your Data. <br>
+      3. AI generates the Dashboard.
+    </p>
+    
+    <!-- Upload form -->
+    <div id="uploadSection" style="display:none; margin-top: 20px; background: rgba(0,0,0,0.5); padding: 20px; border-radius: 10px;">
+        <h3>Selected Template: <span id="selectedTemplateName">None</span></h3>
+        <form id="uploadForm" enctype="multipart/form-data">
+        <input type="file" id="fileInput" name="file" accept=".csv,.xlsx,.xls,.json" style="padding:8px; margin-bottom:12px; color: white;">
+        <br>
+        <input type="password" id="apiKey" placeholder="OpenAI API Key (Optional)" style="padding:8px; margin-bottom:12px; width: 250px;">
+        <br>
+        <button type="button" class="cta-btn" id="uploadBtn" onclick="uploadAndGenerate()">Generate Dashboard 🚀</button>
+        <div id="status" style="margin-top:8px; font-size:13px; color:#f16363"></div>
+        </form>
+    </div>
+
+  </div>
+</div>
+
+<div class="layout-section">
+  <h3>Gallery: Choose Your Template</h3>
+  <div class="layout-grid">
+    <!-- Template 1 -->
+    <div class="layout-card" onclick="selectTemplate('1.jpeg', 'Executive Sales')">
+      <img src="/static/tamp/1.jpeg" alt="Executive Sales">
+      <button class="layout-btn">Select</button>
+    </div>
+    <!-- Template 2 -->
+    <div class="layout-card" onclick="selectTemplate('2.jpeg', 'Financial Overview')">
+      <img src="/static/tamp/2.jpeg" alt="Financial Overview">
+      <button class="layout-btn">Select</button>
+    </div>
+    <!-- Template 3 -->
+    <div class="layout-card" onclick="selectTemplate('3.jpeg', 'Marketing Performance')">
+      <img src="/static/tamp/3.jpeg" alt="Marketing Performance">
+      <button class="layout-btn">Select</button>
+    </div>
+     <!-- Template 4 -->
+     <div class="layout-card" onclick="selectTemplate('4.jpeg', 'HR Analytics')">
+        <img src="/static/tamp/4.jpeg" alt="HR Analytics">
+        <button class="layout-btn">Select</button>
+      </div>
+      <!-- Template 5 -->
+      <div class="layout-card" onclick="selectTemplate('5.jpeg', 'Operational Metrics')">
+        <img src="/static/tamp/5.jpeg" alt="Operational Metrics">
+        <button class="layout-btn">Select</button>
+      </div>
+      <!-- Template 6 -->
+      <div class="layout-card" onclick="selectTemplate('6.jfif', 'Customer Insights')">
+        <img src="/static/tamp/6.jfif" alt="Customer Insights">
+        <button class="layout-btn">Select</button>
+      </div>
+  </div>
+</div>
+
+<script>
+  let selectedTemplateImage = null;
+
+  function selectTemplate(image, name) {
+      selectedTemplateImage = image;
+      document.getElementById('selectedTemplateName').innerText = name;
+      document.getElementById('uploadSection').style.display = 'block';
+      
+      // Highlight visual
+      document.querySelectorAll('.layout-card').forEach(c => c.classList.remove('selected'));
+      event.currentTarget.classList.add('selected');
+      
+      // Scroll to upload
+      document.getElementById('uploadSection').scrollIntoView({behavior: 'smooth'});
+  }
+
+  async function uploadAndGenerate() {
+      const fileInput = document.getElementById("fileInput");
+      const apiKey = document.getElementById("apiKey").value;
+      const status = document.getElementById("status");
+  
+      if (!fileInput.files.length) {
+        status.innerText = "Please select a file";
+        return;
+      }
+  
+      const formData = new FormData();
+      formData.append("file", fileInput.files[0]);
+  
+      status.innerText = "Uploading Data...";
+  
+      try {
+          const response = await fetch("/upload", {
+            method: "POST",
+            body: formData
+          });
+          
+          const result = await response.json();
+          
+          if (response.ok) {
+            // Save info to localStorage
+            localStorage.setItem('file_id', result.file_id);
+            localStorage.setItem('template_image', selectedTemplateImage);
+            localStorage.setItem('api_key', apiKey);
+            
+            status.innerText = "File Uploaded! Redirecting...";
+            setTimeout(() => {
+                window.location.href = "dashboard.html";
+            }, 1000);
+          } else {
+            status.innerText = "Upload failed: " + result.error;
+          }
+      } catch (e) {
+          status.innerText = "Error: " + e.message;
+      }
+  }
+
+  // Logo animation
+  window.addEventListener("load", () => {
+    const logo = document.getElementById("vortex");
+    logo.classList.add("animate");
+    setTimeout(() => {
+      logo.classList.add("move-back");
+      logo.classList.remove("animate");
+    }, 2000);
+  });
+</script>
+
+</body>
+</html>

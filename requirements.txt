@@ -1,0 +1,17 @@
+pandas
+numpy
+streamlit
+matplotlib
+seaborn
+plotly
+langchain>=0.3.0
+langchain-community>=0.3.0
+langchain-openai>=0.2.0
+faiss-cpu
+scikit-learn
+openpyxl
+python-dotenv
+openai
+tiktoken
+flask
+flask-cors

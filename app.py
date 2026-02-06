@@ -1,0 +1,221 @@
+from flask import Flask, request, jsonify, send_from_directory, session
+from flask_cors import CORS
+import pandas as pd
+import os
+import uuid
+import json
+from werkzeug.utils import secure_filename
+
+# Import Agents
+from agents.ingestion_agent import IngestionAgent
+from agents.profiling_agent import DataProfilingAgent
+from agents.cleaning_agent import CleaningAgent
+from agents.mapper_agent import MapperAgent
+from rag.rag_engine import RAGSystem
+from templates_config import get_template_spec
+
+app = Flask(__name__, static_folder='static', static_url_path='/static')
+CORS(app)
+app.secret_key = 'super_secret_key'
+
+# Configuration
+UPLOAD_FOLDER = 'uploads'
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+# Global RAG System (initialized per request or globally if key is constant)
+# In a real app, manage this per user/session
+rag_system = None
+
+def get_rag_system(api_key=None):
+    global rag_system
+    # Prioritize passed key, then env
+    key = api_key or os.environ.get("OPENAI_API_KEY")
+    if key:
+        if not rag_system or rag_system.api_key != key:
+             rag_system = RAGSystem(api_key=key)
+        return rag_system
+    return None
+
+@app.route('/')
+def index():
+    return send_from_directory('static', 'index.html')
+
+@app.route('/<path:path>')
+def static_files(path):
+    return send_from_directory('static', path)
+
+@app.route('/upload', methods=['POST'])
+def upload_file():
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file part'}), 400
+    
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'error': 'No selected file'}), 400
+        
+    if file:
+        filename = secure_filename(file.filename)
+        file_id = str(uuid.uuid4())
+        # Preserve extension
+        ext = os.path.splitext(filename)[1]
+        saved_filename = f"{file_id}{ext}"
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], saved_filename)
+        file.save(file_path)
+        
+        return jsonify({
+            'message': 'File uploaded successfully', 
+            'file_id': file_id,
+            'filename': saved_filename
+        })
+
+@app.route('/generate-dashboard', methods=['POST'])
+def generate_dashboard():
+    data = request.json
+    file_id = data.get('file_id')
+    template_image = data.get('template_image') # e.g., "1.jpeg"
+    api_key = data.get('api_key') # Optional: receive API key from frontend
+    
+    if not file_id or not template_image:
+        return jsonify({'error': 'Missing file_id or template_image'}), 400
+
+    # 1. Load Data
+    # Find file with any extension
+    file_path = None
+    for f in os.listdir(app.config['UPLOAD_FOLDER']):
+        if f.startswith(file_id):
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], f)
+            break
+            
+    if not file_path:
+        return jsonify({'error': 'File not found'}), 404
+
+    try:
+        # Ingestion
+        ingestion = IngestionAgent()
+        df = ingestion.load_file(file_path)
+        
+        # 2. Initialize RAG
+        rag = get_rag_system(api_key)
+        
+        # 3. Profiling & Cleaning
+        profiler = DataProfilingAgent(df)
+        profile = profiler.column_profile()
+        
+        cleaner = CleaningAgent(rag_system=rag)
+        cleaned_df = cleaner.clean_data(df, profile)
+        
+        # 4. Get Template Spec
+        template_spec = get_template_spec(os.path.basename(template_image))
+        
+        # 5. AI Mapping (The "Brain")
+        if rag:
+            try:
+                mapper = MapperAgent(cleaned_df, api_key=rag.api_key)
+                mapping = mapper.map_columns(template_spec)
+                if not mapping:
+                    mapping = heuristic_mapping(cleaned_df, template_spec)
+            except Exception:
+                mapping = heuristic_mapping(cleaned_df, template_spec)
+        else:
+            mapping = heuristic_mapping(cleaned_df, template_spec)
+            
+        # 6. Generate Data for Frontend
+        if rag:
+            try:
+                dashboard_data = mapper.generate_dashboard_data(mapping)
+            except Exception:
+                dashboard_data = generate_simple_data(cleaned_df, mapping)
+        else:
+            dashboard_data = generate_simple_data(cleaned_df, mapping)
+            
+        return jsonify({
+            'status': 'success',
+            'template': template_spec,
+            'mapping': mapping,
+            'data': dashboard_data
+        })
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+def heuristic_mapping(df, template_spec):
+    """
+    Simple fallback if no LLM is available.
+    """
+    mapping = {}
+    nums = df.select_dtypes(include=['number']).columns.tolist()
+    cats = df.select_dtypes(include=['object', 'category']).columns.tolist()
+    dates = df.select_dtypes(include=['datetime']).columns.tolist()
+    
+    # Try to convert object cols to date if they look like it
+    if not dates:
+        for col in cats:
+            if 'date' in col.lower() or 'time' in col.lower():
+                dates.append(col)
+
+    for comp in template_spec['components']:
+        cid = comp['id']
+        ctype = comp['type']
+        
+        if ctype == 'kpi':
+            if nums:
+                mapping[cid] = {"column": nums[0], "aggregation": "sum"}
+                # Rotate
+                nums.append(nums.pop(0))
+            else:
+                mapping[cid] = {"column": None, "aggregation": "count"}
+                
+        elif ctype in ('line', 'line_chart'):
+            if dates and nums:
+                mapping[cid] = {"x": dates[0], "y": nums[0], "type": "line"}
+            elif len(nums) >= 2:
+                 mapping[cid] = {"x": nums[0], "y": nums[1], "type": "line"}
+            else:
+                mapping[cid] = None
+                
+        elif ctype in ('bar', 'bar_chart'):
+            if cats and nums:
+                mapping[cid] = {"x": cats[0], "y": nums[0], "type": "bar"}
+            else:
+                mapping[cid] = None
+                
+    return mapping
+
+def generate_simple_data(df, mapping):
+    # Re-use the logic from MapperAgent but without the class overhead for fallback
+    # Actually, MapperAgent logic is pure python mostly, so we can reuse it if we instantiated it with None
+    # But let's just duplicate a simple version or instantiate MapperAgent with None
+    
+    # We can instantiate MapperAgent with None key if we modify it to handle it
+    # But let's just implement a basic version here for safety
+    data = {}
+    for comp_id, config in mapping.items():
+        if not config:
+             data[comp_id] = {"value": "N/A", "label": "No Data"}
+             continue
+             
+        if "aggregation" in config:
+             col = config["column"]
+             if col and col in df.columns:
+                 val = df[col].sum() if config["aggregation"] == "sum" else df[col].count()
+                 data[comp_id] = {"value": str(round(val, 2)), "label": col}
+             else:
+                 data[comp_id] = {"value": str(len(df)), "label": "Count"}
+        elif "x" in config:
+             # Charts
+             x = config["x"]
+             y = config["y"]
+             if x in df.columns and y in df.columns:
+                 grp = df.groupby(x)[y].sum().head(10)
+                 data[comp_id] = {
+                     "type": config.get("type", "bar"),
+                     "labels": grp.index.astype(str).tolist(),
+                     "datasets": [{"label": y, "data": grp.values.tolist()}]
+                 }
+    return data
+
+if __name__ == '__main__':
+    app.run(port=8000, debug=True)

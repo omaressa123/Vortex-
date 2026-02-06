@@ -1,0 +1,7 @@
+If the data is financial, do not delete the columns.
+If a column has more than 40% missing values, suggest deletion.
+Remove duplicates to ensure data integrity.
+Standardize date formats to ISO 8601.
+For categorical variables with high cardinality, consider grouping rare categories into 'Other'.
+Outliers in 'salary' column should be investigated, not automatically removed.
+Ensure no negative values in 'age' or 'quantity' columns.
