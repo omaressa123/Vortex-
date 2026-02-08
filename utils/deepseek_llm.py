@@ -10,9 +10,9 @@ class ChatDeepSeekRapidAPI(BaseChatModel):
     """Wrapper for DeepSeek API via RapidAPI."""
     
     api_key: str = Field(..., description="RapidAPI Key")
-    host: str = Field(default="deepseek-v31.p.rapidapi.com", description="RapidAPI Host")
-    model: str = Field(default="DeepSeek-V3-0324", description="Model name")
-    api_url: str = Field(default="https://deepseek-v31.p.rapidapi.com/", description="API Endpoint")
+    host: str = Field(default="swift-ai.p.rapidapi.com", description="RapidAPI Host")
+    model: str = Field(default="gpt-5", description="Model name")
+    api_url: str = Field(default="https://swift-ai.p.rapidapi.com/chat/completions", description="API Endpoint")
     temperature: float = Field(default=0.0)
 
     def _generate(
@@ -46,16 +46,39 @@ class ChatDeepSeekRapidAPI(BaseChatModel):
         }
         
         try:
-            response = requests.post(self.api_url, json=payload, headers=headers)
-            response.raise_for_status()
+            print(f"Making API call to: {self.api_url}")
+            print(f"Headers: {headers}")
+            print(f"Payload: {json.dumps(payload, indent=2)}")
+            
+            response = requests.post(
+                self.api_url, 
+                json=payload, 
+                headers=headers,
+                timeout=30
+            )
+            
+            print(f"Response status: {response.status_code}")
+            print(f"Response headers: {dict(response.headers)}")
+            
+            if response.status_code != 200:
+                print(f"Error response: {response.text}")
+                raise Exception(f"API Error: {response.status_code} - {response.text}")
+            
             result = response.json()
+            print(f"Response data: {json.dumps(result, indent=2)}")
             
             # DeepSeek via RapidAPI response format
             # { "choices": [ { "message": { "content": "..." } } ] }
+            if "choices" not in result or len(result["choices"]) == 0:
+                raise Exception("Invalid response format: missing choices")
+            
             content = result["choices"][0]["message"]["content"]
             
             return ChatResult(generations=[ChatGeneration(message=AIMessage(content=content))])
             
+        except requests.exceptions.RequestException as e:
+            print(f"Network error: {e}")
+            raise Exception(f"Network error: {str(e)}")
         except Exception as e:
             print(f"DeepSeek API Error: {e}")
             if hasattr(e, 'response') and e.response:

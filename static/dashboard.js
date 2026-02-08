@@ -2,6 +2,19 @@ document.addEventListener("DOMContentLoaded", async () => {
     const fileId = localStorage.getItem('file_id');
     const templateImage = localStorage.getItem('template_image');
     const apiKey = localStorage.getItem('api_key');
+    
+    // Check if dashboard data is already available from API test
+    const preGeneratedData = localStorage.getItem('dashboard_data');
+    if (preGeneratedData) {
+        try {
+            const dashboardData = JSON.parse(preGeneratedData);
+            renderDashboard(dashboardData);
+            localStorage.removeItem('dashboard_data'); // Clean up
+            return;
+        } catch (e) {
+            console.error("Error parsing pre-generated dashboard data:", e);
+        }
+    }
 
     if (!fileId || !templateImage) {
         alert("No file or template selected. Redirecting to home.");

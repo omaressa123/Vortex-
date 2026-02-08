@@ -15,7 +15,11 @@ from rag.rag_engine import RAGSystem
 from templates_config import get_template_spec
 
 app = Flask(__name__, static_folder='static', static_url_path='/static')
-CORS(app)
+CORS(app, 
+     origins=["*"], 
+     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+     allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
+     supports_credentials=True)
 app.secret_key = 'super_secret_key'
 
 # Configuration
@@ -82,6 +86,117 @@ def signin():
 def logout():
     session.pop('user', None)
     return jsonify({'success': True, 'message': 'Logged out successfully'})
+
+@app.route('/test-api', methods=['POST'])
+def test_api():
+    """Test API key connectivity and proceed with dashboard generation"""
+    data = request.json
+    api_key = data.get('api_key')
+    file_id = data.get('file_id')
+    template_image = data.get('template_image')
+    
+    if not api_key:
+        return jsonify({'error': 'API key required'}), 400
+    
+    try:
+        # Test with DeepSeek API
+        from utils.deepseek_llm import ChatDeepSeekRapidAPI
+        llm = ChatDeepSeekRapidAPI(api_key=api_key)
+        
+        # Simple test message
+        from langchain_core.messages import HumanMessage
+        result = llm._generate([HumanMessage(content="Hello, respond with 'API working'")])
+        
+        response_text = result.generations[0].message.content
+        
+        # If file_id and template_image provided, proceed with dashboard generation
+        if file_id and template_image:
+            try:
+                # Load Data
+                file_path = None
+                for f in os.listdir(app.config['UPLOAD_FOLDER']):
+                    if f.startswith(file_id):
+                        file_path = os.path.join(app.config['UPLOAD_FOLDER'], f)
+                        break
+                        
+                if not file_path:
+                    return jsonify({'success': False, 'error': 'File not found'}), 404
+
+                # Ingestion
+                ingestion = IngestionAgent()
+                df = ingestion.load_file(file_path)
+                
+                # Initialize RAG
+                rag = get_rag_system(api_key)
+                
+                # Profiling & Cleaning
+                profiler = DataProfilingAgent(df)
+                profile = profiler.column_profile()
+                
+                cleaner = CleaningAgent(rag_system=rag)
+                cleaned_df = cleaner.clean_data(df, profile)
+                
+                # Get Template Spec
+                template_spec = get_template_spec(os.path.basename(template_image))
+                
+                # AI Mapping
+                if rag:
+                    try:
+                        mapper = MapperAgent(cleaned_df, api_key=rag.api_key)
+                        mapping = mapper.map_columns(template_spec)
+                        if not mapping:
+                            mapping = heuristic_mapping(cleaned_df, template_spec)
+                    except Exception:
+                        mapping = heuristic_mapping(cleaned_df, template_spec)
+                else:
+                    mapping = heuristic_mapping(cleaned_df, template_spec)
+                    
+                # Generate Dashboard Data
+                if rag:
+                    try:
+                        dashboard_data = mapper.generate_dashboard_data(mapping)
+                    except Exception:
+                        dashboard_data = generate_simple_data(cleaned_df, mapping)
+                else:
+                    dashboard_data = generate_simple_data(cleaned_df, mapping)
+                
+                return jsonify({
+                    'success': True,
+                    'api_test': {
+                        'response': response_text,
+                        'message': 'API key is working'
+                    },
+                    'dashboard': {
+                        'status': 'success',
+                        'template': template_spec,
+                        'mapping': mapping,
+                        'data': dashboard_data
+                    }
+                })
+                
+            except Exception as e:
+                return jsonify({
+                    'success': True,
+                    'api_test': {
+                        'response': response_text,
+                        'message': 'API key is working but dashboard generation failed'
+                    },
+                    'error': f'Dashboard generation failed: {str(e)}'
+                }), 500
+        
+        # Just API test without dashboard generation
+        return jsonify({
+            'success': True,
+            'response': response_text,
+            'message': 'API key is working'
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'message': 'API key test failed'
+        }), 500
 
 @app.route('/dashboard')
 def dashboard():
