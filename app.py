@@ -91,9 +91,15 @@ def validate_api_key(api_key, provider='openai'):
     else:
         return len(api_key) > 5  # Generic check
 
-def get_rag_system(api_key=None, provider='openai'):
-    """Initialize RAG system with configurable API key and provider"""
+def get_rag_system(api_key=None, provider='openai', use_local=False, local_model='llama3'):
+    """Initialize RAG system with configurable API key, provider, or local LLM"""
     global rag_system
+    
+    if use_local:
+        # Use local LLM - NO API KEY NEEDED!
+        if not rag_system or rag_system.api_key != 'local':
+            rag_system = RAGSystem(use_local=True, local_model=local_model)
+        return rag_system
     
     # Get API key from custom input, environment, or config
     key = api_key or get_api_key(provider)
@@ -152,6 +158,66 @@ def signin():
 def logout():
     session.pop('user', None)
     return jsonify({'success': True, 'message': 'Logged out successfully'})
+
+@app.route('/api/local-llm/status')
+def local_llm_status():
+    """Check local LLM status"""
+    try:
+        from utils.local_llm import check_ollama_available, get_available_models
+        is_available = check_ollama_available()
+        models = get_available_models() if is_available else []
+        
+        return jsonify({
+            'available': is_available,
+            'models': models,
+            'message': 'Ollama is running' if is_available else 'Ollama not running. Start with: ollama serve'
+        })
+    except ImportError:
+        return jsonify({
+            'available': False,
+            'models': [],
+            'message': 'Local LLM not available. Install with: pip install requests'
+        })
+
+@app.route('/api/local-llm/setup')
+def local_llm_setup():
+    """Get setup instructions for local LLM"""
+    try:
+        from utils.local_llm import setup_ollama
+        instructions = setup_ollama()
+        return jsonify({
+            'instructions': instructions
+        })
+    except ImportError:
+        return jsonify({
+            'instructions': 'Local LLM not available. Install with: pip install requests'
+        })
+
+@app.route('/api/local-llm/pull', methods=['POST'])
+def pull_local_model():
+    """Pull a model from Ollama"""
+    try:
+        from utils.local_llm import pull_model
+        
+        data = request.json
+        model_name = data.get('model', 'llama3')
+        
+        if pull_model(model_name):
+            return jsonify({
+                'success': True,
+                'message': f'Successfully pulled {model_name}'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': f'Failed to pull {model_name}'
+            }), 500
+            
+    except ImportError:
+        return jsonify({
+            'success': False,
+            'error': 'Local LLM not available'
+        }), 500
 
 @app.route('/api/providers')
 def get_api_providers():

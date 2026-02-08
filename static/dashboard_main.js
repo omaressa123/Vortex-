@@ -16,12 +16,200 @@ document.addEventListener('DOMContentLoaded', function() {
         setTheme(savedTheme);
     }
     
-    // Load API providers
+    // Load API providers and check local LLM status
     loadAPIProviders();
+    checkLocalLLMStatus();
     
     // Check authentication status
     checkAuthStatus();
 });
+
+// Check local LLM status
+async function checkLocalLLMStatus() {
+    try {
+        const response = await fetch('/api/local-llm/status');
+        const data = await response.json();
+        
+        if (data.available) {
+            updateLocalModelDropdown(data.models);
+        }
+    } catch (error) {
+        console.error('Failed to check local LLM status:', error);
+    }
+}
+
+function updateLocalModelDropdown(models) {
+    const select = document.getElementById('localModel');
+    select.innerHTML = '';
+    
+    // Default models
+    const defaultModels = ['llama3', 'mistral', 'phi-3', 'qwen2', 'codellama'];
+    
+    defaultModels.forEach(model => {
+        const option = document.createElement('option');
+        option.value = model;
+        option.textContent = model.charAt(0).toUpperCase() + model.slice(1);
+        
+        // Mark if model is available locally
+        if (models.includes(model)) {
+            option.textContent += ' (Available)';
+        }
+        
+        select.appendChild(option);
+    });
+}
+
+// Update LLM interface based on selection
+function updateLLMInterface() {
+    const llmType = document.getElementById('llmType').value;
+    const providerSection = document.getElementById('providerSection');
+    const apiKeySection = document.getElementById('apiKeySection');
+    const localModelSection = document.getElementById('localModelSection');
+    const cloudInfo = document.getElementById('cloudInfo');
+    const localInfo = document.getElementById('localInfo');
+    
+    if (llmType === 'local') {
+        // Show local LLM interface
+        providerSection.style.display = 'none';
+        apiKeySection.style.display = 'none';
+        localModelSection.style.display = 'block';
+        cloudInfo.style.display = 'none';
+        localInfo.style.display = 'block';
+        
+        document.getElementById('localInfo').textContent = 'Local LLM - No API keys needed!';
+    } else {
+        // Show cloud API interface
+        providerSection.style.display = 'block';
+        apiKeySection.style.display = 'block';
+        localModelSection.style.display = 'none';
+        cloudInfo.style.display = 'block';
+        localInfo.style.display = 'none';
+        
+        updateProviderInfo(document.getElementById('apiProvider').value);
+    }
+}
+
+// Show local LLM setup instructions
+async function showLocalSetup() {
+    try {
+        const response = await fetch('/api/local-llm/setup');
+        const data = await response.json();
+        
+        // Create modal with setup instructions
+        const modal = document.createElement('div');
+        modal.className = 'modal fade';
+        modal.innerHTML = `
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="fas fa-cog"></i> Local LLM Setup (Ollama)
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <pre style="background: #f8f9fa; padding: 15px; border-radius: 5px; overflow-x: auto;">${data.instructions}</pre>
+                        
+                        <div class="mt-3">
+                            <button class="btn btn-success" onclick="pullModel('llama3')">
+                                <i class="fas fa-download"></i> Pull Llama 3
+                            </button>
+                            <button class="btn btn-info" onclick="pullModel('mistral')">
+                                <i class="fas fa-download"></i> Pull Mistral
+                            </button>
+                            <button class="btn btn-warning" onclick="pullModel('phi-3')">
+                                <i class="fas fa-download"></i> Pull Phi-3
+                            </button>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // Show modal
+        const bsModal = new bootstrap.Modal(modal);
+        bsModal.show();
+        
+        // Remove modal when hidden
+        modal.addEventListener('hidden.bs.modal', function() {
+            document.body.removeChild(modal);
+            // Refresh local LLM status after setup
+            setTimeout(checkLocalLLMStatus, 2000);
+        });
+        
+    } catch (error) {
+        showNotification('Failed to load setup instructions', 'danger');
+    }
+}
+
+// Pull a model from Ollama
+async function pullModel(modelName) {
+    try {
+        showNotification(`Pulling ${modelName}...`, 'info');
+        
+        const response = await fetch('/api/local-llm/pull', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ model: modelName })
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok && result.success) {
+            showNotification(result.message, 'success');
+            // Refresh model list after a delay
+            setTimeout(checkLocalLLMStatus, 5000);
+        } else {
+            showNotification(result.error || 'Failed to pull model', 'danger');
+        }
+    } catch (error) {
+        showNotification('Error pulling model', 'danger');
+    }
+}
+
+// Test LLM (Cloud or Local)
+async function testLLM() {
+    const llmType = document.getElementById('llmType').value;
+    const resultDiv = document.getElementById('llmTestResult');
+    
+    if (llmType === 'local') {
+        // Test local LLM
+        const localModel = document.getElementById('localModel').value;
+        
+        updateStatus('apiStatus', 'loading');
+        resultDiv.innerHTML = '<div class="spinner-border text-success" role="status"><span class="visually-hidden">Testing Local LLM...</span></div>';
+        
+        try {
+            const response = await fetch('/api/local-llm/status');
+            const data = await response.json();
+            
+            if (response.ok && data.available) {
+                updateStatus('apiStatus', 'active');
+                updateStatus('ragStatus', 'active');
+                resultDiv.innerHTML = `<div class="alert alert-success"><i class="fas fa-check-circle"></i> Local LLM is working! Using ${localModel}</div>`;
+                showNotification('Local LLM is ready!', 'success');
+            } else {
+                updateStatus('apiStatus', 'error');
+                resultDiv.innerHTML = `<div class="alert alert-danger"><i class="fas fa-exclamation-circle"></i> Local LLM not available: ${data.message}</div>`;
+                showNotification('Local LLM test failed', 'danger');
+            }
+        } catch (error) {
+            updateStatus('apiStatus', 'error');
+            resultDiv.innerHTML = `<div class="alert alert-danger"><i class="fas fa-exclamation-circle"></i> Network error: ${error.message}</div>`;
+            showNotification('Network error', 'danger');
+        }
+    } else {
+        // Test cloud API (existing function)
+        testAPI();
+    }
+}
 
 // Load available API providers
 async function loadAPIProviders() {
@@ -542,126 +730,245 @@ function createChart(canvasId, figure) {
 
 // AI Functions
 async function generateInsights() {
-    const provider = document.getElementById('apiProvider').value;
-    const apiKey = document.getElementById('apiKey').value;
+    const llmType = document.getElementById('llmType').value;
     
-    if (!apiKey) {
-        showNotification('API key required for AI insights', 'warning');
-        return;
-    }
-    
-    updateStatus('insightsStatus', 'loading');
-    showLoading();
-    
-    try {
-        const response = await fetch('/dashboard/generate-insights', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ 
-                api_key: apiKey,
-                provider: provider 
-            })
-        });
+    if (llmType === 'local') {
+        // Use local LLM - no API key needed
+        updateStatus('insightsStatus', 'loading');
+        showLoading();
         
-        const result = await response.json();
-        
-        if (response.ok && result.success) {
-            updateStatus('insightsStatus', 'active');
-            const resultsDiv = document.getElementById('insightsResults');
-            
-            let html = '<div class="alert alert-info">';
-            result.insights.forEach((insight, index) => {
-                html += `
-                    <div class="mb-2">
-                        <h6><i class="fas fa-lightbulb"></i> Insight ${index + 1}</h6>
-                        <p>${insight}</p>
-                    </div>
-                `;
+        try {
+            const response = await fetch('/dashboard/generate-insights', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ 
+                    use_local: true,
+                    local_model: document.getElementById('localModel').value
+                })
             });
-            html += '</div>';
             
-            resultsDiv.innerHTML = html;
-            showNotification('AI insights generated', 'success');
-        } else {
+            const result = await response.json();
+            
+            if (response.ok && result.success) {
+                updateStatus('insightsStatus', 'active');
+                const resultsDiv = document.getElementById('insightsResults');
+                
+                let html = '<div class="alert alert-success">';
+                result.insights.forEach((insight, index) => {
+                    html += `
+                        <div class="mb-2">
+                            <h6><i class="fas fa-lightbulb"></i> Insight ${index + 1}</h6>
+                            <p>${insight}</p>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+                
+                resultsDiv.innerHTML = html;
+                showNotification('Local AI insights generated', 'success');
+            } else {
+                updateStatus('insightsStatus', 'error');
+                showNotification('Local AI insights failed', 'danger');
+            }
+        } catch (error) {
             updateStatus('insightsStatus', 'error');
-            showNotification('AI insights failed', 'danger');
+            showNotification('Error during insights generation', 'danger');
         }
-    } catch (error) {
-        updateStatus('insightsStatus', 'error');
-        showNotification('Error during insights generation', 'danger');
+        
+        hideLoading();
+    } else {
+        // Use cloud API (existing logic)
+        const provider = document.getElementById('apiProvider').value;
+        const apiKey = document.getElementById('apiKey').value;
+        
+        if (!apiKey) {
+            showNotification('API key required for AI insights', 'warning');
+            return;
+        }
+        
+        updateStatus('insightsStatus', 'loading');
+        showLoading();
+        
+        try {
+            const response = await fetch('/dashboard/generate-insights', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ 
+                    api_key: apiKey,
+                    provider: provider 
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok && result.success) {
+                updateStatus('insightsStatus', 'active');
+                const resultsDiv = document.getElementById('insightsResults');
+                
+                let html = '<div class="alert alert-info">';
+                result.insights.forEach((insight, index) => {
+                    html += `
+                        <div class="mb-2">
+                            <h6><i class="fas fa-lightbulb"></i> Insight ${index + 1}</h6>
+                            <p>${insight}</p>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+                
+                resultsDiv.innerHTML = html;
+                showNotification('AI insights generated', 'success');
+            } else {
+                updateStatus('insightsStatus', 'error');
+                showNotification('AI insights failed', 'danger');
+            }
+        } catch (error) {
+            updateStatus('insightsStatus', 'error');
+            showNotification('Error during insights generation', 'danger');
+        }
+        
+        hideLoading();
     }
-    
-    hideLoading();
 }
 
 async function askQuestion() {
-    const provider = document.getElementById('apiProvider').value;
-    const apiKey = document.getElementById('apiKey').value;
+    const llmType = document.getElementById('llmType').value;
     const question = document.getElementById('questionInput').value;
     
-    if (!apiKey || !question) {
-        showNotification('API key and question required', 'warning');
+    if (!question) {
+        showNotification('Question required', 'warning');
         return;
     }
     
-    updateStatus('chatStatus', 'loading');
-    showLoading();
-    
-    try {
-        const response = await fetch('/dashboard/ask-question', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ 
-                api_key: apiKey,
-                provider: provider,
-                question: question 
-            })
-        });
+    if (llmType === 'local') {
+        // Use local LLM - no API key needed
+        updateStatus('chatStatus', 'loading');
+        showLoading();
         
-        const result = await response.json();
-        
-        if (response.ok && result.success) {
-            updateStatus('chatStatus', 'active');
-            const resultsDiv = document.getElementById('chatResults');
+        try {
+            const response = await fetch('/dashboard/ask-question', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ 
+                    use_local: true,
+                    local_model: document.getElementById('localModel').value,
+                    question: question 
+                })
+            });
             
-            resultsDiv.innerHTML = `
-                <div class="card">
-                    <div class="card-header">
-                        <h6><i class="fas fa-question"></i> Your Question</h6>
-                    </div>
-                    <div class="card-body">
-                        <p><strong>Q:</strong> ${question}</p>
-                        <hr>
-                        <p><strong>A:</strong> ${result.answer}</p>
-                        ${result.relevant_rules.length > 0 ? `
-                            <details>
-                                <summary><i class="fas fa-book"></i> Relevant Rules</summary>
-                                <ul>
-                                    ${result.relevant_rules.map(rule => `<li>${rule}</li>`).join('')}
-                                </ul>
-                            </details>
-                        ` : ''}
-                    </div>
-                </div>
-            `;
+            const result = await response.json();
             
-            // Clear question input
-            document.getElementById('questionInput').value = '';
-            showNotification('Answer generated', 'success');
-        } else {
+            if (response.ok && result.success) {
+                updateStatus('chatStatus', 'active');
+                const resultsDiv = document.getElementById('chatResults');
+                
+                resultsDiv.innerHTML = `
+                    <div class="card">
+                        <div class="card-header">
+                            <h6><i class="fas fa-question"></i> Your Question</h6>
+                        </div>
+                        <div class="card-body">
+                            <p><strong>Q:</strong> ${question}</p>
+                            <hr>
+                            <p><strong>A:</strong> ${result.answer}</p>
+                            ${result.relevant_rules.length > 0 ? `
+                                <details>
+                                    <summary><i class="fas fa-book"></i> Relevant Rules</summary>
+                                    <ul>
+                                        ${result.relevant_rules.map(rule => `<li>${rule}</li>`).join('')}
+                                    </ul>
+                                </details>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+                
+                // Clear question input
+                document.getElementById('questionInput').value = '';
+                showNotification('Local answer generated', 'success');
+            } else {
+                updateStatus('chatStatus', 'error');
+                showNotification('Failed to generate answer', 'danger');
+            }
+        } catch (error) {
             updateStatus('chatStatus', 'error');
-            showNotification('Failed to generate answer', 'danger');
+            showNotification('Network error', 'danger');
         }
-    } catch (error) {
-        updateStatus('chatStatus', 'error');
-        showNotification('Network error', 'danger');
+        
+        hideLoading();
+    } else {
+        // Use cloud API (existing logic)
+        const provider = document.getElementById('apiProvider').value;
+        const apiKey = document.getElementById('apiKey').value;
+        
+        if (!apiKey) {
+            showNotification('API key and question required', 'warning');
+            return;
+        }
+        
+        updateStatus('chatStatus', 'loading');
+        showLoading();
+        
+        try {
+            const response = await fetch('/dashboard/ask-question', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ 
+                    api_key: apiKey,
+                    provider: provider,
+                    question: question 
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok && result.success) {
+                updateStatus('chatStatus', 'active');
+                const resultsDiv = document.getElementById('chatResults');
+                
+                resultsDiv.innerHTML = `
+                    <div class="card">
+                        <div class="card-header">
+                            <h6><i class="fas fa-question"></i> Your Question</h6>
+                        </div>
+                        <div class="card-body">
+                            <p><strong>Q:</strong> ${question}</p>
+                            <hr>
+                            <p><strong>A:</strong> ${result.answer}</p>
+                            ${result.relevant_rules.length > 0 ? `
+                                <details>
+                                    <summary><i class="fas fa-book"></i> Relevant Rules</summary>
+                                    <ul>
+                                        ${result.relevant_rules.map(rule => `<li>${rule}</li>`).join('')}
+                                    </ul>
+                                </details>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+                
+                // Clear question input
+                document.getElementById('questionInput').value = '';
+                showNotification('Answer generated', 'success');
+            } else {
+                updateStatus('chatStatus', 'error');
+                showNotification('Failed to generate answer', 'danger');
+            }
+        } catch (error) {
+            updateStatus('chatStatus', 'error');
+            showNotification('Network error', 'danger');
+        }
+        
+        hideLoading();
     }
-    
-    hideLoading();
 }
 
 // Utility Functions
