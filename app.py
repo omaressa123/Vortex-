@@ -29,8 +29,8 @@ rag_system = None
 
 def get_rag_system(api_key=None):
     global rag_system
-    # Prioritize passed key, then env
-    key = api_key or os.environ.get("OPENAI_API_KEY")
+    # Prioritize passed key, then env, then DeepSeek
+    key = api_key or os.environ.get("OPENAI_API_KEY") or os.environ.get("DEEPSEEK_API_KEY")
     if key:
         if not rag_system or rag_system.api_key != key:
              rag_system = RAGSystem(api_key=key)
@@ -44,6 +44,50 @@ def index():
 @app.route('/<path:path>')
 def static_files(path):
     return send_from_directory('static', path)
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'GET':
+        return send_from_directory('static', 'login.html')
+    
+    data = request.json
+    email = data.get('email')
+    password = data.get('password')
+    
+    # Simple authentication (in production, use proper password hashing and database)
+    if email and password:
+        session['user'] = email
+        return jsonify({'success': True, 'message': 'Login successful'})
+    
+    return jsonify({'success': False, 'error': 'Invalid credentials'}), 401
+
+@app.route('/signin', methods=['GET', 'POST'])
+def signin():
+    if request.method == 'GET':
+        return send_from_directory('static', 'signin.html')
+    
+    data = request.json
+    name = data.get('name')
+    email = data.get('email')
+    password = data.get('password')
+    
+    # Simple registration (in production, use proper password hashing and database)
+    if name and email and password:
+        session['user'] = email
+        return jsonify({'success': True, 'message': 'Registration successful'})
+    
+    return jsonify({'success': False, 'error': 'Missing required fields'}), 400
+
+@app.route('/logout', methods=['POST'])
+def logout():
+    session.pop('user', None)
+    return jsonify({'success': True, 'message': 'Logged out successfully'})
+
+@app.route('/dashboard')
+def dashboard():
+    if 'user' not in session:
+        return redirect('/login')
+    return send_from_directory('static', 'dashboard.html')
 
 @app.route('/upload', methods=['POST'])
 def upload_file():

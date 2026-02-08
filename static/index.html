@@ -17,7 +17,7 @@
 <div class="hero">
   <nav>
     <h2>Vortex</h2>
-    <!-- <a href="/login"><button class="nav-btn">Login</button></a> -->
+    <a href="/login"><button class="nav-btn">Login</button></a>
   </nav>
 
   <div class="hero-content">
@@ -37,7 +37,7 @@
         <form id="uploadForm" enctype="multipart/form-data">
         <input type="file" id="fileInput" name="file" accept=".csv,.xlsx,.xls,.json" style="padding:8px; margin-bottom:12px; color: white;">
         <br>
-        <input type="password" id="apiKey" placeholder="OpenAI API Key (Optional)" style="padding:8px; margin-bottom:12px; width: 250px;">
+        <input type="password" id="apiKey" placeholder="API Key (Optional - OpenAI/DeepSeek)" style="padding:8px; margin-bottom:12px; width: 250px;">
         <br>
         <button type="button" class="cta-btn" id="uploadBtn" onclick="uploadAndGenerate()">Generate Dashboard 🚀</button>
         <div id="status" style="margin-top:8px; font-size:13px; color:#f16363"></div>
