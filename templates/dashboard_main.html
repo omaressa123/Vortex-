@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Intelligent Data Dashboard - Vortex</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary-color: #f16363;
+            --secondary-color: #0078D4;
+            --success-color: #28a745;
+            --warning-color: #ffc107;
+            --danger-color: #dc3545;
+            --dark-bg: #1a1a2e;
+            --card-bg: #16213e;
+            --text-light: #e9ecef;
+            --border-color: #2d3748;
+        }
+
+        /* Theme Variations */
+        [data-theme="ocean"] {
+            --primary-color: #006994;
+            --secondary-color: #00a8cc;
+            --success-color: #00b894;
+            --dark-bg: #0b1929;
+            --card-bg: #173a46;
+        }
+
+        [data-theme="forest"] {
+            --primary-color: #2d6a4f;
+            --secondary-color: #52b788;
+            --success-color: #40916c;
+            --dark-bg: #081c15;
+            --card-bg: #1b4332;
+        }
+
+        [data-theme="sunset"] {
+            --primary-color: #ff6b6b;
+            --secondary-color: #feca57;
+            --success-color: #ff9ff3;
+            --dark-bg: #2c2c54;
+            --card-bg: #40407a;
+        }
+
+        [data-theme="royal"] {
+            --primary-color: #6c5ce7;
+            --secondary-color: #a29bfe;
+            --success-color: #55a3ff;
+            --dark-bg: #130f40;
+            --card-bg: #24243e;
+        }
+
+        body {
+            background: linear-gradient(135deg, var(--dark-bg), var(--card-bg));
+            color: var(--text-light);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            min-height: 100vh;
+        }
+
+        .navbar {
+            background: var(--card-bg);
+            border-bottom: 1px solid var(--border-color);
+            padding: 1rem 0;
+        }
+
+        .navbar-brand {
+            color: var(--primary-color) !important;
+            font-weight: bold;
+            font-size: 1.5rem;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+        }
+
+        .btn-primary {
+            background: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+
+        .btn-primary:hover {
+            background: var(--secondary-color);
+            border-color: var(--secondary-color);
+        }
+
+        .metric-card {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            border-radius: 15px;
+            padding: 1.5rem;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .metric-card:hover {
+            transform: scale(1.05);
+        }
+
+        .section-title {
+            color: var(--primary-color);
+            border-bottom: 2px solid var(--primary-color);
+            padding-bottom: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .loading-spinner {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 9999;
+        }
+
+        .chart-container {
+            background: var(--card-bg);
+            border-radius: 10px;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+
+        .theme-selector {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+
+        .template-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin: 2rem 0;
+        }
+
+        .template-card {
+            background: var(--card-bg);
+            border: 2px solid var(--border-color);
+            border-radius: 10px;
+            padding: 1rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .template-card:hover {
+            border-color: var(--primary-color);
+            transform: translateY(-3px);
+        }
+
+        .template-card.selected {
+            border-color: var(--success-color);
+            background: linear-gradient(135deg, var(--success-color), transparent);
+        }
+
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-left: 0.5rem;
+        }
+
+        .status-active { background: var(--success-color); }
+        .status-inactive { background: var(--warning-color); }
+        .status-error { background: var(--danger-color); }
+    </style>
+</head>
+<body data-theme="default">
+    <!-- Theme Selector -->
+    <div class="theme-selector">
+        <div class="dropdown">
+            <button class="btn btn-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                <i class="fas fa-palette"></i> Theme
+            </button>
+            <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="#" onclick="setTheme('default')">🔥 Default</a></li>
+                <li><a class="dropdown-item" href="#" onclick="setTheme('ocean')">🌊 Ocean</a></li>
+                <li><a class="dropdown-item" href="#" onclick="setTheme('forest')">🌲 Forest</a></li>
+                <li><a class="dropdown-item" href="#" onclick="setTheme('sunset')">🌅 Sunset</a></li>
+                <li><a class="dropdown-item" href="#" onclick="setTheme('royal')">👑 Royal</a></li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">
+                <i class="fas fa-chart-line"></i> Vortex Dashboard
+            </a>
+            <div class="navbar-nav ms-auto">
+                <span class="navbar-text">
+                    <i class="fas fa-user"></i> <span id="userEmail">user@example.com</span>
+                    <span class="status-indicator status-inactive" id="ragStatus"></span>
+                </span>
+                <button class="btn btn-outline-light btn-sm ms-3" onclick="logout()">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Loading Spinner -->
+    <div class="loading-spinner" id="loadingSpinner">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+
+    <div class="container-fluid mt-4">
+        <!-- API Configuration -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-key"></i> API Configuration 
+                            <span class="status-indicator status-inactive" id="apiStatus"></span>
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <input type="password" class="form-control" id="apiKey" 
+                                       placeholder="Enter your OpenAI/DeepSeek API key (optional)">
+                            </div>
+                            <div class="col-md-4">
+                                <button class="btn btn-primary w-100" onclick="testAPI()">
+                                    <i class="fas fa-vial"></i> Test API
+                                </button>
+                            </div>
+                        </div>
+                        <div class="mt-2" id="apiTestResult"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Template Selection -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <h3 class="section-title">
+                    <i class="fas fa-th-large"></i> Choose Dashboard Template
+                </h3>
+                <div class="template-grid">
+                    <div class="template-card" onclick="selectTemplate('executive', 'Executive Dashboard')">
+                        <i class="fas fa-chart-pie fa-3x mb-3" style="color: var(--primary-color);"></i>
+                        <h6>Executive Dashboard</h6>
+                        <small>KPIs, charts, metrics</small>
+                    </div>
+                    <div class="template-card" onclick="selectTemplate('sales', 'Sales Analytics')">
+                        <i class="fas fa-chart-line fa-3x mb-3" style="color: var(--success-color);"></i>
+                        <h6>Sales Analytics</h6>
+                        <small>Revenue, trends, forecasts</small>
+                    </div>
+                    <div class="template-card" onclick="selectTemplate('marketing', 'Marketing Performance')">
+                        <i class="fas fa-bullhorn fa-3x mb-3" style="color: var(--warning-color);"></i>
+                        <h6>Marketing Performance</h6>
+                        <small>Campaigns, conversions, ROI</small>
+                    </div>
+                    <div class="template-card" onclick="selectTemplate('hr', 'HR Analytics')">
+                        <i class="fas fa-users fa-3x mb-3" style="color: var(--secondary-color);"></i>
+                        <h6>HR Analytics</h6>
+                        <small>Employees, performance, retention</small>
+                    </div>
+                    <div class="template-card" onclick="selectTemplate('operations', 'Operations Dashboard')">
+                        <i class="fas fa-cogs fa-3x mb-3" style="color: var(--danger-color);"></i>
+                        <h6>Operations Dashboard</h6>
+                        <small>Efficiency, quality, uptime</small>
+                    </div>
+                    <div class="template-card" onclick="selectTemplate('financial', 'Financial Overview')">
+                        <i class="fas fa-dollar-sign fa-3x mb-3" style="color: var(--success-color);"></i>
+                        <h6>Financial Overview</h6>
+                        <small>Revenue, expenses, profit</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- File Upload -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-upload"></i> Data Upload
+                            <span class="status-indicator status-inactive" id="uploadStatus"></span>
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <input type="file" class="form-control" id="dataFile" 
+                                       accept=".csv,.xlsx,.xls,.json">
+                            </div>
+                            <div class="col-md-4">
+                                <button class="btn btn-success w-100" onclick="uploadData()">
+                                    <i class="fas fa-cloud-upload-alt"></i> Upload & Analyze
+                                </button>
+                            </div>
+                        </div>
+                        <div class="mt-3" id="uploadResult"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Preview -->
+        <div class="row mb-4" id="dataPreviewSection" style="display: none;">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-table"></i> Data Preview
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="dataPreview"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Analysis Sections -->
+        <div class="row" id="analysisSections" style="display: none;">
+            <!-- Data Profiling -->
+            <div class="col-lg-6 mb-4">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-search"></i> Data Profiling
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <button class="btn btn-primary w-100 mb-3" onclick="profileData()">
+                            <i class="fas fa-microscope"></i> Profile Data
+                        </button>
+                        <div id="profilingResults"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Data Cleaning -->
+            <div class="col-lg-6 mb-4">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-broom"></i> Data Cleaning
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <button class="btn btn-warning w-100 mb-3" onclick="cleanData()">
+                            <i class="fas fa-magic"></i> Auto-Clean Data
+                        </button>
+                        <div id="cleaningResults"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- EDA & KPIs -->
+            <div class="col-12 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-chart-bar"></i> EDA & KPI Extraction
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <button class="btn btn-success w-100 mb-3" onclick="generateEDA()">
+                            <i class="fas fa-calculator"></i> Generate Analysis
+                        </button>
+                        <div id="edaResults"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Visualizations -->
+            <div class="col-12 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-chart-area"></i> Visualizations
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <select class="form-select" id="vizType">
+                                    <option value="auto">Auto-Generate</option>
+                                    <option value="correlation">Correlation Heatmap</option>
+                                    <option value="distribution">Distribution</option>
+                                    <option value="time_series">Time Series</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <select class="form-select" id="vizColumn" style="display: none;">
+                                    <option value="">Select Column</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <button class="btn btn-info w-100" onclick="generateVisualization()">
+                                    <i class="fas fa-chart-line"></i> Generate
+                                </button>
+                            </div>
+                        </div>
+                        <div id="visualizationResults"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI Insights -->
+            <div class="col-lg-6 mb-4">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-lightbulb"></i> AI Insights
+                            <span class="status-indicator status-inactive" id="insightsStatus"></span>
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <button class="btn btn-primary w-100 mb-3" onclick="generateInsights()">
+                            <i class="fas fa-brain"></i> Generate AI Insights
+                        </button>
+                        <div id="insightsResults"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Conversational RAG -->
+            <div class="col-lg-6 mb-4">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-comments"></i> Ask About Your Data
+                            <span class="status-indicator status-inactive" id="chatStatus"></span>
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <textarea class="form-control" id="questionInput" rows="3" 
+                                      placeholder="Ask any question about your data..."></textarea>
+                        </div>
+                        <button class="btn btn-secondary w-100" onclick="askQuestion()">
+                            <i class="fas fa-question"></i> Ask Question
+                        </button>
+                        <div class="mt-3" id="chatResults"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Custom Dashboard JS -->
+    <script src="/static/dashboard_main.js"></script>
+</body>
+</html>

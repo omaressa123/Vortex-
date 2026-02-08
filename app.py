@@ -14,6 +14,9 @@ from agents.mapper_agent import MapperAgent
 from rag.rag_engine import RAGSystem
 from templates_config import get_template_spec
 
+# Import Dashboard Blueprint
+from dashboard.flask_dashboard import dashboard_bp
+
 app = Flask(__name__, static_folder='static', static_url_path='/static')
 CORS(app, 
      origins=["*"], 
@@ -21,6 +24,9 @@ CORS(app,
      allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
      supports_credentials=True)
 app.secret_key = 'super_secret_key'
+
+# Register blueprint
+app.register_blueprint(dashboard_bp)
 
 # Configuration
 UPLOAD_FOLDER = 'uploads'
@@ -87,7 +93,20 @@ def logout():
     session.pop('user', None)
     return jsonify({'success': True, 'message': 'Logged out successfully'})
 
-@app.route('/test-api', methods=['POST'])
+@app.route('/dashboard/user-status')
+def user_status():
+    """Check user authentication status"""
+    if 'user' in session:
+        return jsonify({
+            'authenticated': True,
+            'email': session['user']
+        })
+    else:
+        return jsonify({
+            'authenticated': False
+        }), 401
+
+@app.route('/dashboard/test-api', methods=['POST'])
 def test_api():
     """Test API key connectivity and proceed with dashboard generation"""
     data = request.json
