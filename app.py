@@ -33,17 +33,77 @@ UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
+# API Key Configuration - Users can modify these
+API_CONFIG = {
+    'openai': {
+        'key': os.environ.get('OPENAI_API_KEY', 'sk-your-openai-key-here'),
+        'base_url': 'https://api.openai.com/v1',
+        'models': ['gpt-3.5-turbo', 'gpt-4', 'gpt-4-turbo']
+    },
+    'deepseek': {
+        'key': os.environ.get('DEEPSEEK_API_KEY', 'your-deepseek-key-here'),
+        'base_url': 'https://swift-ai.p.rapidapi.com',
+        'models': ['gpt-5', 'deepseek-coder', 'deepseek-chat'],
+        'rapidapi_host': 'swift-ai.p.rapidapi.com'
+    },
+    'anthropic': {
+        'key': os.environ.get('ANTHROPIC_API_KEY', 'sk-ant-your-key-here'),
+        'base_url': 'https://api.anthropic.com/v1',
+        'models': ['claude-3-sonnet', 'claude-3-opus']
+    },
+    'google': {
+        'key': os.environ.get('GOOGLE_API_KEY', 'your-google-key-here'),
+        'base_url': 'https://generativelanguage.googleapis.com/v1beta',
+        'models': ['gemini-pro', 'gemini-pro-vision']
+    }
+}
+
 # Global RAG System (initialized per request or globally if key is constant)
 # In a real app, manage this per user/session
 rag_system = None
 
-def get_rag_system(api_key=None):
+def get_api_key(provider='openai', custom_key=None):
+    """Get API key from configuration or custom input"""
+    if custom_key:
+        return custom_key
+    
+    config = API_CONFIG.get(provider, {})
+    return config.get('key')
+
+def get_available_providers():
+    """Get list of available API providers"""
+    return list(API_CONFIG.keys())
+
+def validate_api_key(api_key, provider='openai'):
+    """Validate if API key is properly formatted"""
+    if not api_key:
+        return False
+    
+    # Basic validation based on provider
+    if provider == 'openai':
+        return api_key.startswith('sk-') and len(api_key) > 20
+    elif provider == 'deepseek':
+        return len(api_key) > 10  # Basic check for RapidAPI keys
+    elif provider == 'anthropic':
+        return api_key.startswith('sk-ant-') and len(api_key) > 20
+    elif provider == 'google':
+        return len(api_key) > 10  # Basic check
+    else:
+        return len(api_key) > 5  # Generic check
+
+def get_rag_system(api_key=None, provider='openai'):
+    """Initialize RAG system with configurable API key and provider"""
     global rag_system
-    # Prioritize passed key, then env, then DeepSeek
-    key = api_key or os.environ.get("OPENAI_API_KEY") or os.environ.get("DEEPSEEK_API_KEY")
-    if key:
+    
+    # Get API key from custom input, environment, or config
+    key = api_key or get_api_key(provider)
+    
+    if key and validate_api_key(key, provider):
+        # Create unique cache key based on provider and key
+        cache_key = f"{provider}_{key[:10]}"
+        
         if not rag_system or rag_system.api_key != key:
-             rag_system = RAGSystem(api_key=key)
+            rag_system = RAGSystem(api_key=key)
         return rag_system
     return None
 
@@ -92,6 +152,56 @@ def signin():
 def logout():
     session.pop('user', None)
     return jsonify({'success': True, 'message': 'Logged out successfully'})
+
+@app.route('/api/providers')
+def get_api_providers():
+    """Get available API providers and their configurations"""
+    return jsonify({
+        'providers': get_available_providers(),
+        'config': {k: {
+            'models': v.get('models', []),
+            'base_url': v.get('base_url', ''),
+            'has_key': bool(v.get('key') and v.get('key') not in ['sk-your-openai-key-here', 'your-deepseek-key-here', 'sk-ant-your-key-here', 'your-google-key-here'])
+        } for k, v in API_CONFIG.items()}
+    })
+
+@app.route('/api/test-provider', methods=['POST'])
+def test_api_provider():
+    """Test API key for specific provider"""
+    data = request.json
+    provider = data.get('provider', 'openai')
+    api_key = data.get('api_key')
+    
+    if not api_key:
+        # Use configured key if no custom key provided
+        api_key = get_api_key(provider)
+    
+    if not validate_api_key(api_key, provider):
+        return jsonify({
+            'success': False,
+            'error': f'Invalid API key format for {provider}'
+        }), 400
+    
+    try:
+        # Test with RAG system
+        rag = get_rag_system(api_key, provider)
+        if rag:
+            return jsonify({
+                'success': True,
+                'provider': provider,
+                'message': f'{provider.title()} API key is working'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Failed to initialize RAG system'
+            }), 500
+            
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 @app.route('/dashboard/user-status')
 def user_status():

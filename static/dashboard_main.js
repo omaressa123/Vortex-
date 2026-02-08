@@ -9,73 +9,138 @@ function setTheme(theme) {
     localStorage.setItem('dashboard_theme', theme);
 }
 
-// Load saved theme
+// Load saved theme and API providers
 document.addEventListener('DOMContentLoaded', function() {
     const savedTheme = localStorage.getItem('dashboard_theme');
     if (savedTheme) {
         setTheme(savedTheme);
     }
     
+    // Load API providers
+    loadAPIProviders();
+    
     // Check authentication status
     checkAuthStatus();
 });
 
-// Authentication
-function checkAuthStatus() {
-    fetch('/dashboard/user-status', {
-        method: 'GET',
-        headers: {
-            'Content-Type': 'application/json'
+// Load available API providers
+async function loadAPIProviders() {
+    try {
+        const response = await fetch('/api/providers');
+        const data = await response.json();
+        
+        if (response.ok) {
+            updateProviderDropdown(data.providers, data.config);
         }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.authenticated) {
-            document.getElementById('userEmail').textContent = data.email;
-            updateStatus('ragStatus', 'active');
-        } else {
-            window.location.href = '/login';
-        }
-    })
-    .catch(error => {
-        console.error('Auth check failed:', error);
-        window.location.href = '/login';
-    });
+    } catch (error) {
+        console.error('Failed to load API providers:', error);
+    }
 }
 
-function logout() {
-    fetch('/logout', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
+function updateProviderDropdown(providers, config) {
+    const select = document.getElementById('apiProvider');
+    select.innerHTML = '';
+    
+    providers.forEach(provider => {
+        const option = document.createElement('option');
+        option.value = provider;
+        option.textContent = provider.charAt(0).toUpperCase() + provider.slice(1);
+        
+        // Mark if provider has configured key
+        if (config[provider].has_key) {
+            option.textContent += ' (Configured)';
         }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            window.location.href = '/login';
-        }
-    })
-    .catch(error => {
-        console.error('Logout failed:', error);
+        
+        select.appendChild(option);
     });
+    
+    // Update provider info
+    updateProviderInfo(select.value);
 }
 
-// Template Selection
-function selectTemplate(templateId, templateName) {
-    currentTemplate = templateId;
+// Update provider information
+document.getElementById('apiProvider').addEventListener('change', function() {
+    updateProviderInfo(this.value);
+});
+
+function updateProviderInfo(provider) {
+    const infoSpan = document.getElementById('providerInfo');
+    const apiKeyInput = document.getElementById('apiKey');
     
-    // Update UI
-    document.querySelectorAll('.template-card').forEach(card => {
-        card.classList.remove('selected');
+    const providerInfo = {
+        'openai': 'OpenAI: GPT models, requires sk- prefix',
+        'deepseek': 'DeepSeek: Fast AI models via RapidAPI',
+        'anthropic': 'Anthropic: Claude models, requires sk-ant- prefix',
+        'google': 'Google: Gemini models, requires Google API key'
+    };
+    
+    infoSpan.textContent = providerInfo[provider] || 'Select a provider and enter your API key';
+    
+    // Update placeholder
+    const placeholders = {
+        'openai': 'sk-... (OpenAI API key)',
+        'deepseek': '... (DeepSeek RapidAPI key)',
+        'anthropic': 'sk-ant-... (Anthropic API key)',
+        'google': '... (Google API key)'
+    };
+    
+    apiKeyInput.placeholder = placeholders[provider] || 'Enter your API key';
+}
+
+// Show API configuration modal
+function showAPIConfig() {
+    // Create a simple modal for API configuration
+    const modal = document.createElement('div');
+    modal.className = 'modal fade';
+    modal.innerHTML = `
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-cog"></i> API Configuration
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <h6>Environment Variables</h6>
+                    <p>Configure API keys using environment variables:</p>
+                    <ul>
+                        <li><strong>OPENAI_API_KEY</strong> - OpenAI API key</li>
+                        <li><strong>DEEPSEEK_API_KEY</strong> - DeepSeek RapidAPI key</li>
+                        <li><strong>ANTHROPIC_API_KEY</strong> - Anthropic API key</li>
+                        <li><strong>GOOGLE_API_KEY</strong> - Google Gemini API key</li>
+                    </ul>
+                    
+                    <h6>Or Use Custom Keys</h6>
+                    <p>You can also enter API keys directly in the dashboard interface above.</p>
+                    
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> 
+                        API keys are validated for format but not stored permanently in the system.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Show modal (using Bootstrap)
+    const bsModal = new bootstrap.Modal(modal);
+    bsModal.show();
+    
+    // Remove modal when hidden
+    modal.addEventListener('hidden.bs.modal', function() {
+        document.body.removeChild(modal);
     });
-    event.currentTarget.classList.add('selected');
-    
-    showNotification(`Selected: ${templateName}`, 'success');
 }
 
 // API Management
 async function testAPI() {
+    const provider = document.getElementById('apiProvider').value;
     const apiKey = document.getElementById('apiKey').value;
     const resultDiv = document.getElementById('apiTestResult');
     
@@ -88,12 +153,15 @@ async function testAPI() {
     resultDiv.innerHTML = '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Testing...</span></div>';
     
     try {
-        const response = await fetch('/dashboard/test-api', {
+        const response = await fetch('/api/test-provider', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ api_key: apiKey })
+            body: JSON.stringify({ 
+                provider: provider,
+                api_key: apiKey 
+            })
         });
         
         const result = await response.json();
@@ -101,8 +169,8 @@ async function testAPI() {
         if (response.ok && result.success) {
             updateStatus('apiStatus', 'active');
             updateStatus('ragStatus', 'active');
-            resultDiv.innerHTML = `<div class="alert alert-success"><i class="fas fa-check-circle"></i> API key working! ${result.message}</div>`;
-            showNotification('API key is working', 'success');
+            resultDiv.innerHTML = `<div class="alert alert-success"><i class="fas fa-check-circle"></i> ${result.message}</div>`;
+            showNotification(`${provider.charAt(0).toUpperCase() + provider.slice(1)} API key is working`, 'success');
         } else {
             updateStatus('apiStatus', 'error');
             resultDiv.innerHTML = `<div class="alert alert-danger"><i class="fas fa-exclamation-circle"></i> API test failed: ${result.error}</div>`;
@@ -243,6 +311,7 @@ async function profileData() {
 }
 
 async function cleanData() {
+    const provider = document.getElementById('apiProvider').value;
     const apiKey = document.getElementById('apiKey').value;
     
     if (!apiKey) {
@@ -258,7 +327,10 @@ async function cleanData() {
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ api_key: apiKey })
+            body: JSON.stringify({ 
+                api_key: apiKey,
+                provider: provider 
+            })
         });
         
         const result = await response.json();
@@ -470,6 +542,7 @@ function createChart(canvasId, figure) {
 
 // AI Functions
 async function generateInsights() {
+    const provider = document.getElementById('apiProvider').value;
     const apiKey = document.getElementById('apiKey').value;
     
     if (!apiKey) {
@@ -486,7 +559,10 @@ async function generateInsights() {
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ api_key: apiKey })
+            body: JSON.stringify({ 
+                api_key: apiKey,
+                provider: provider 
+            })
         });
         
         const result = await response.json();
@@ -521,6 +597,7 @@ async function generateInsights() {
 }
 
 async function askQuestion() {
+    const provider = document.getElementById('apiProvider').value;
     const apiKey = document.getElementById('apiKey').value;
     const question = document.getElementById('questionInput').value;
     
@@ -540,6 +617,7 @@ async function askQuestion() {
             },
             body: JSON.stringify({ 
                 api_key: apiKey,
+                provider: provider,
                 question: question 
             })
         });
