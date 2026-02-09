@@ -1,12 +1,7 @@
 import os
-from langchain_community.document_loaders import TextLoader
-from langchain_community.vectorstores import FAISS
-from langchain.embeddings import OpenAIEmbeddings
-from langchain.chat_models import ChatOpenAI
-from langchain.text_splitter import CharacterTextSplitter
-from langchain.chains import RetrievalQA
-from langchain.llms import OpenAI
-import faiss
+import json
+import requests
+from typing import Any, List, Optional, Dict
 import numpy as np
 
 # Import local LLM support
@@ -16,6 +11,14 @@ try:
 except ImportError:
     LOCAL_LLM_AVAILABLE = False
     print("Local LLM not available. Install with: pip install requests")
+
+# Try to import sentence transformers for embeddings
+try:
+    from sentence_transformers import SentenceTransformer
+    SENTENCE_TRANSFORMERS_AVAILABLE = True
+except ImportError:
+    SENTENCE_TRANSFORMERS_AVAILABLE = False
+    print("Sentence transformers not available. Install with: pip install sentence-transformers")
 
 class RAGSystem:
     def __init__(self, knowledge_base_path="rag/knowledge_base", api_key=None, use_local=False, local_model="llama3"):
@@ -27,7 +30,7 @@ class RAGSystem:
         self.llm = None
         
         if use_local and LOCAL_LLM_AVAILABLE:
-            # Use local LLM (Ollama) - NO API KEY NEEDED!
+            # Use local LLM - NO API KEY NEEDED!
             print(f"🔹 Using Local LLM: {local_model}")
             if check_ollama_available():
                 self.llm = LocalOllamaLLM(model=local_model)
@@ -49,17 +52,27 @@ class RAGSystem:
         is_openai = api_key.startswith("sk-")
         
         if is_openai:
-            os.environ["OPENAI_API_KEY"] = api_key
-            self.embeddings = OpenAIEmbeddings()
-            self.llm = ChatOpenAI(temperature=0.4, model_name="gpt-3.5-turbo")
-            self._initialize_knowledge_base()
+            try:
+                from langchain_community.embeddings import OpenAIEmbeddings
+                from langchain_community.chat_models import ChatOpenAI
+                os.environ["OPENAI_API_KEY"] = api_key
+                self.embeddings = OpenAIEmbeddings()
+                self.llm = ChatOpenAI(temperature=0.4, model_name="gpt-3.5-turbo")
+                self._initialize_knowledge_base()
+            except ImportError:
+                print("❌ LangChain components not available for OpenAI")
+                self.llm = None
         else:
             # Use DeepSeek RapidAPI
-            from utils.deepseek_llm import ChatDeepSeekRapidAPI
-            self.llm = ChatDeepSeekRapidAPI(api_key=api_key)
-            # Note: DeepSeek via RapidAPI doesn't provide embeddings in this integration.
-            # RAG retrieval will be disabled, but LLM features (analyze_schema) will work.
-            print("Using DeepSeek API. RAG Retrieval disabled due to missing Embeddings.")
+            try:
+                from utils.deepseek_llm import ChatDeepSeekRapidAPI
+                self.llm = ChatDeepSeekRapidAPI(api_key=api_key)
+                # Note: DeepSeek via RapidAPI doesn't provide embeddings in this integration.
+                # RAG retrieval will be disabled, but LLM features (analyze_schema) will work.
+                print("Using DeepSeek API. RAG Retrieval disabled due to missing Embeddings.")
+            except ImportError:
+                print("❌ DeepSeek integration not available")
+                self.llm = None
     
     def _initialize_knowledge_base(self):
         """Initialize knowledge base with embeddings"""
@@ -69,47 +82,48 @@ class RAGSystem:
             for filename in os.listdir(self.knowledge_base_path):
                 if filename.endswith('.txt'):
                     file_path = os.path.join(self.knowledge_base_path, filename)
-                    loader = TextLoader(file_path)
-                    documents.extend(loader.load())
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                        documents.append(content)
             
             if not documents:
                 print("No knowledge base documents found!")
                 return
             
-            # Split documents
-            text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-            texts = text_splitter.split_documents(documents)
-            
-            # Create embeddings and vector store
-            if self.use_local or (hasattr(self, 'embeddings') and self.embeddings):
-                if self.use_local:
-                    # For local LLM, we'll use sentence transformers for embeddings
-                    try:
-                        from sentence_transformers import SentenceTransformer
-                        self.embeddings = SentenceTransformer('all-MiniLM-L6-v2')
-                        
-                        # Create embeddings for all texts
-                        texts_content = [doc.page_content for doc in texts]
-                        embeddings = self.embeddings.encode(texts_content)
-                        
-                        # Create FAISS index
-                        dimension = embeddings.shape[1]
-                        index = faiss.IndexFlatL2(dimension)
-                        index.add(embeddings)
-                        
-                        self.vector_store = {
-                            'index': index,
-                            'texts': texts,
-                            'embeddings': embeddings
-                        }
-                        print(f"✅ Local RAG initialized with {len(texts)} documents")
-                    except ImportError:
-                        print("❌ sentence-transformers not installed. Install with: pip install sentence-transformers")
-                        self.vector_store = None
-                else:
-                    # Use OpenAI embeddings
-                    self.vector_store = FAISS.from_documents(texts, self.embeddings)
-                    print(f"✅ Cloud RAG initialized with {len(texts)} documents")
+            if self.use_local and SENTENCE_TRANSFORMERS_AVAILABLE:
+                # For local LLM, use sentence transformers for embeddings
+                self.embeddings = SentenceTransformer('all-MiniLM-L6-v2')
+                
+                # Create embeddings for all texts
+                embeddings = self.embeddings.encode(documents)
+                
+                # Create simple vector store using numpy
+                self.vector_store = {
+                    'documents': documents,
+                    'embeddings': embeddings
+                }
+                print(f"✅ Local RAG initialized with {len(documents)} documents")
+            elif hasattr(self, 'embeddings'):
+                # Use cloud embeddings if available
+                try:
+                    # Simple chunking for cloud embeddings
+                    chunk_size = 1000
+                    chunks = []
+                    for doc in documents:
+                        for i in range(0, len(doc), chunk_size):
+                            chunks.append(doc[i:i+chunk_size])
+                    
+                    # Create embeddings
+                    embeddings = self.embeddings.embed_documents(chunks)
+                    
+                    self.vector_store = {
+                        'chunks': chunks,
+                        'embeddings': embeddings
+                    }
+                    print(f"✅ Cloud RAG initialized with {len(chunks)} chunks")
+                except Exception as e:
+                    print(f"❌ Cloud embeddings failed: {e}")
+                    self.vector_store = None
             else:
                 print("❌ No embeddings available for RAG initialization")
                 self.vector_store = None
@@ -120,29 +134,38 @@ class RAGSystem:
     
     def retrieve_rules(self, query, k=3):
         """Retrieve relevant rules from knowledge base"""
-        if not self.vector_store:
+        if not self.vector_store or not self.embeddings:
             return []
         
         try:
+            # Create embedding for query
+            query_embedding = self.embeddings.encode([query])
+            
             if self.use_local:
-                # Local FAISS retrieval
-                from sentence_transformers import SentenceTransformer
-                if not hasattr(self, 'embeddings'):
-                    self.embeddings = SentenceTransformer('all-MiniLM-L6-v2')
+                # Local RAG with numpy
+                documents = self.vector_store['documents']
+                embeddings = self.vector_store['embeddings']
                 
-                query_embedding = self.embeddings.encode([query])
-                D, I = self.vector_store['index'].search(query_embedding, k)
+                # Calculate similarity
+                similarities = np.dot(embeddings, query_embedding.T).flatten()
                 
-                retrieved_docs = []
-                for idx in I[0]:
-                    if idx < len(self.vector_store['texts']):
-                        retrieved_docs.append(self.vector_store['texts'][idx])
+                # Get top k most similar
+                top_indices = np.argsort(similarities)[-k:][::-1]
                 
-                return [doc.page_content for doc in retrieved_docs]
+                return [documents[i] for i in top_indices]
             else:
-                # Cloud FAISS retrieval
-                docs = self.vector_store.similarity_search(query, k=k)
-                return [doc.page_content for doc in docs]
+                # Cloud RAG
+                chunks = self.vector_store['chunks']
+                embeddings = self.vector_store['embeddings']
+                
+                # Calculate similarity
+                similarities = np.dot(embeddings, query_embedding[0])
+                
+                # Get top k most similar
+                top_indices = np.argsort(similarities)[-k:][::-1]
+                
+                return [chunks[i] for i in top_indices]
+                
         except Exception as e:
             print(f"Error retrieving rules: {e}")
             return []

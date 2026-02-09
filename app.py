@@ -12,7 +12,25 @@ from agents.profiling_agent import DataProfilingAgent
 from agents.cleaning_agent import CleaningAgent
 from agents.mapper_agent import MapperAgent
 from rag.rag_engine import RAGSystem
-from templates_config import get_template_spec
+
+# Simple template configuration
+def get_template_spec(template_name):
+    """Get template specification"""
+    templates = {
+        'financial': {
+            'name': 'Financial Dashboard',
+            'components': ['date', 'amount', 'description', 'category']
+        },
+        'sales': {
+            'name': 'Sales Dashboard', 
+            'components': ['product', 'quantity', 'price', 'total']
+        },
+        'hr': {
+            'name': 'HR Dashboard',
+            'components': ['employee', 'department', 'salary', 'position']
+        }
+    }
+    return templates.get(template_name, {})
 
 # Import Dashboard Blueprint
 from dashboard.flask_dashboard import dashboard_bp

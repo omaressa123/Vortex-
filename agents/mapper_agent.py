@@ -1,12 +1,39 @@
 import pandas as pd
 from langchain_core.prompts import PromptTemplate
-from langchain_openai import ChatOpenAI
 import json
 
+# Try to import local LLM first, fallback to cloud
+try:
+    from utils.local_llm import LocalOllamaLLM, check_ollama_available
+    LOCAL_LLM_AVAILABLE = True
+except ImportError:
+    LOCAL_LLM_AVAILABLE = False
+
+try:
+    from langchain_openai import ChatOpenAI
+    OPENAI_AVAILABLE = True
+except ImportError:
+    OPENAI_AVAILABLE = False
+
 class MapperAgent:
-    def __init__(self, df, api_key):
+    def __init__(self, df, api_key=None, use_local=False, local_model="llama3"):
         self.df = df
-        self.llm = ChatOpenAI(temperature=0, model_name="gpt-3.5-turbo", api_key=api_key)
+        
+        if use_local and LOCAL_LLM_AVAILABLE:
+            # Use local LLM
+            if check_ollama_available():
+                self.llm = LocalOllamaLLM(model=local_model)
+                print(f"🔹 Using Local LLM: {local_model}")
+            else:
+                print("❌ Ollama not running. Please start with: ollama serve")
+                self.llm = None
+        elif api_key and OPENAI_AVAILABLE:
+            # Use OpenAI
+            self.llm = ChatOpenAI(temperature=0, model_name="gpt-3.5-turbo", api_key=api_key)
+            print("🔹 Using OpenAI API")
+        else:
+            print("❌ No LLM available for mapping")
+            self.llm = None
 
     def map_columns(self, template_spec):
         """
