@@ -226,34 +226,13 @@
                 <div class="card">
                     <div class="card-header">
                         <h5 class="mb-0">
-                            <i class="fas fa-key"></i> API Configuration 
+                            <i class="fas fa-robot"></i> Local LLM Configuration 
                             <span class="status-indicator status-inactive" id="apiStatus"></span>
                         </h5>
                     </div>
                     <div class="card-body">
                         <div class="row mb-3">
-                            <div class="col-md-3">
-                                <label class="form-label">LLM Type</label>
-                                <select class="form-select" id="llmType" onchange="updateLLMInterface()">
-                                    <option value="cloud">Cloud API</option>
-                                    <option value="local">Local LLM (Ollama)</option>
-                                </select>
-                            </div>
-                            <div class="col-md-3" id="providerSection">
-                                <label class="form-label">API Provider</label>
-                                <select class="form-select" id="apiProvider">
-                                    <option value="openai">OpenAI</option>
-                                    <option value="deepseek">DeepSeek</option>
-                                    <option value="anthropic">Anthropic</option>
-                                    <option value="google">Google Gemini</option>
-                                </select>
-                            </div>
-                            <div class="col-md-3" id="apiKeySection">
-                                <label class="form-label">API Key</label>
-                                <input type="password" class="form-control" id="apiKey" 
-                                       placeholder="Enter your API key (optional)">
-                            </div>
-                            <div class="col-md-3" id="localModelSection" style="display: none;">
+                            <div class="col-md-6">
                                 <label class="form-label">Local Model</label>
                                 <select class="form-select" id="localModel">
                                     <option value="llama3">Llama 3 (8B)</option>
@@ -265,31 +244,26 @@
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label">&nbsp;</label><br>
-                                <button class="btn btn-primary w-100" onclick="testLLM()">
-                                    <i class="fas fa-vial"></i> Test
+                                <button class="btn btn-success w-100" onclick="testLocalLLM()">
+                                    <i class="fas fa-vial"></i> Test Local LLM
+                                </button>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">&nbsp;</label><br>
+                                <button class="btn btn-info w-100" onclick="showLocalSetup()">
+                                    <i class="fas fa-cog"></i> Setup Ollama
                                 </button>
                             </div>
                         </div>
                         <div class="row">
-                            <div class="col-md-6" id="cloudInfo">
+                            <div class="col-12">
                                 <div class="d-flex justify-content-between align-items-center">
                                     <small class="text-muted">
                                         <i class="fas fa-info-circle"></i> 
-                                        <span id="providerInfo">Select a provider and enter your API key</span>
+                                        <span id="localInfo">Local LLM - No API keys needed! Works completely offline.</span>
                                     </small>
-                                    <button class="btn btn-sm btn-outline-info" onclick="showAPIConfig()">
-                                        <i class="fas fa-cog"></i> Configure
-                                    </button>
-                                </div>
-                            </div>
-                            <div class="col-md-6" id="localInfo" style="display: none;">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <small class="text-muted">
-                                        <i class="fas fa-info-circle"></i> 
-                                        <span id="localInfo">Local LLM - No API keys needed!</span>
-                                    </small>
-                                    <button class="btn btn-sm btn-outline-success" onclick="showLocalSetup()">
-                                        <i class="fas fa-cog"></i> Setup
+                                    <button class="btn btn-sm btn-outline-success" onclick="pullModel('llama3')">
+                                        <i class="fas fa-download"></i> Pull Llama 3
                                     </button>
                                 </div>
                             </div>

@@ -213,32 +213,23 @@ def generate_visualization():
 
 @dashboard_bp.route('/generate-insights', methods=['POST'])
 def generate_insights():
-    """Generate AI insights using RAG"""
+    """Generate AI insights using Local RAG"""
     if 'user' not in session:
         return jsonify({'error': 'Authentication required'}), 401
     
     data = request.json
-    use_local = data.get('use_local', False)
     local_model = data.get('local_model', 'llama3')
-    api_key = data.get('api_key')
     
     try:
         file_path = session['current_file'].get('cleaned_path') or session['current_file']['file_path']
         ingestion = IngestionAgent()
         df = ingestion.load_file(file_path)
         
-        if use_local:
-            # Use local LLM - NO API KEY NEEDED!
-            rag_system = RAGSystem(use_local=True, local_model=local_model)
-        else:
-            # Use cloud API
-            if not api_key:
-                return jsonify({'error': 'API key required for insights generation'}), 400
-            
-            rag_system = RAGSystem(api_key=api_key)
+        # Use local LLM - NO API KEY NEEDED!
+        rag_system = RAGSystem(use_local=True, local_model=local_model)
         
         if not rag_system or not rag_system.llm:
-            return jsonify({'error': 'Failed to initialize RAG system'}), 500
+            return jsonify({'error': 'Failed to initialize local RAG system. Make sure Ollama is running.'}), 500
         
         # Generate insights
         insight_agent = InsightAgent(df, rag_system)
@@ -254,14 +245,12 @@ def generate_insights():
 
 @dashboard_bp.route('/ask-question', methods=['POST'])
 def ask_question():
-    """Answer questions about data using conversational RAG"""
+    """Answer questions about data using conversational Local RAG"""
     if 'user' not in session:
         return jsonify({'error': 'Authentication required'}), 401
     
     data = request.json
-    use_local = data.get('use_local', False)
     local_model = data.get('local_model', 'llama3')
-    api_key = data.get('api_key')
     question = data.get('question')
     
     if not question:
@@ -272,18 +261,11 @@ def ask_question():
         ingestion = IngestionAgent()
         df = ingestion.load_file(file_path)
         
-        if use_local:
-            # Use local LLM - NO API KEY NEEDED!
-            rag_system = RAGSystem(use_local=True, local_model=local_model)
-        else:
-            # Use cloud API
-            if not api_key:
-                return jsonify({'error': 'API key required for question answering'}), 400
-            
-            rag_system = RAGSystem(api_key=api_key)
+        # Use local LLM - NO API KEY NEEDED!
+        rag_system = RAGSystem(use_local=True, local_model=local_model)
         
         if not rag_system or not rag_system.llm:
-            return jsonify({'error': 'Failed to initialize RAG system'}), 500
+            return jsonify({'error': 'Failed to initialize local RAG system. Make sure Ollama is running.'}), 500
         
         # Get schema information and sample data
         schema_info = str(df.dtypes.to_dict())
