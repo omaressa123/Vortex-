@@ -16,9 +16,11 @@ except ImportError:
 try:
     from sentence_transformers import SentenceTransformer
     SENTENCE_TRANSFORMERS_AVAILABLE = True
-except ImportError:
+    print("✅ Sentence transformers available")
+except ImportError as e:
     SENTENCE_TRANSFORMERS_AVAILABLE = False
-    print("Sentence transformers not available. Install with: pip install sentence-transformers")
+    print(f"❌ Sentence transformers not available: {e}")
+    print("Install with: pip install sentence-transformers")
 
 class RAGSystem:
     def __init__(self, knowledge_base_path="rag/knowledge_base", api_key=None, use_local=False, local_model="llama3"):
@@ -77,35 +79,52 @@ class RAGSystem:
     def _initialize_knowledge_base(self):
         """Initialize knowledge base with embeddings"""
         try:
+            print(f"🔍 Initializing knowledge base from: {self.knowledge_base_path}")
+            
             # Load all text files from knowledge base
             documents = []
-            for filename in os.listdir(self.knowledge_base_path):
-                if filename.endswith('.txt'):
-                    file_path = os.path.join(self.knowledge_base_path, filename)
-                    with open(file_path, 'r', encoding='utf-8') as f:
-                        content = f.read()
-                        documents.append(content)
-            
-            if not documents:
-                print("No knowledge base documents found!")
+            if os.path.exists(self.knowledge_base_path):
+                for filename in os.listdir(self.knowledge_base_path):
+                    if filename.endswith('.txt'):
+                        file_path = os.path.join(self.knowledge_base_path, filename)
+                        print(f"📄 Loading: {filename}")
+                        with open(file_path, 'r', encoding='utf-8') as f:
+                            content = f.read()
+                            documents.append(content)
+            else:
+                print(f"❌ Knowledge base path not found: {self.knowledge_base_path}")
                 return
             
-            if self.use_local and SENTENCE_TRANSFORMERS_AVAILABLE:
-                # For local LLM, use sentence transformers for embeddings
-                self.embeddings = SentenceTransformer('all-MiniLM-L6-v2')
-                
-                # Create embeddings for all texts
-                embeddings = self.embeddings.encode(documents)
-                
-                # Create simple vector store using numpy
-                self.vector_store = {
-                    'documents': documents,
-                    'embeddings': embeddings
-                }
-                print(f"✅ Local RAG initialized with {len(documents)} documents")
+            if not documents:
+                print("❌ No knowledge base documents found!")
+                return
+            
+            print(f"📚 Loaded {len(documents)} documents")
+            
+            if self.use_local:
+                if SENTENCE_TRANSFORMERS_AVAILABLE:
+                    print("🔹 Using sentence transformers for embeddings")
+                    # For local LLM, use sentence transformers for embeddings
+                    self.embeddings = SentenceTransformer('all-MiniLM-L6-v2')
+                    
+                    # Create embeddings for all texts
+                    print("🔄 Creating embeddings...")
+                    embeddings = self.embeddings.encode(documents)
+                    
+                    # Create simple vector store using numpy
+                    self.vector_store = {
+                        'documents': documents,
+                        'embeddings': embeddings
+                    }
+                    print(f"✅ Local RAG initialized with {len(documents)} documents")
+                else:
+                    print("❌ Sentence transformers not available for local RAG")
+                    print("Install with: pip install sentence-transformers")
+                    self.vector_store = None
             elif hasattr(self, 'embeddings'):
                 # Use cloud embeddings if available
                 try:
+                    print("🔹 Using cloud embeddings")
                     # Simple chunking for cloud embeddings
                     chunk_size = 1000
                     chunks = []
@@ -114,6 +133,7 @@ class RAGSystem:
                             chunks.append(doc[i:i+chunk_size])
                     
                     # Create embeddings
+                    print("🔄 Creating cloud embeddings...")
                     embeddings = self.embeddings.embed_documents(chunks)
                     
                     self.vector_store = {
@@ -129,7 +149,7 @@ class RAGSystem:
                 self.vector_store = None
                 
         except Exception as e:
-            print(f"Error initializing knowledge base: {e}")
+            print(f"❌ Error initializing knowledge base: {e}")
             self.vector_store = None
     
     def retrieve_rules(self, query, k=3):

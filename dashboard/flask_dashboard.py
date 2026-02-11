@@ -79,21 +79,33 @@ def profile_data():
     
     try:
         file_path = session['current_file']['file_path']
+        print(f"🔍 Profiling file: {file_path}")
+        
         ingestion = IngestionAgent()
         df = ingestion.load_file(file_path)
+        print(f"📊 Data loaded: {df.shape}")
         
         profiler = DataProfilingAgent(df)
+        print("🔍 Generating profile...")
         profile = profiler.column_profile()
+        print("🔍 Calculating quality score...")
         quality_score = profiler.data_quality_score()
+        print("🔍 Getting overview...")
+        overview = profiler.dataset_overview()
+        
+        print(f"✅ Profile generated successfully")
         
         return jsonify({
             'success': True,
             'profile': profile,
             'quality_score': quality_score,
-            'overview': profiler.dataset_overview()
+            'overview': overview
         })
         
     except Exception as e:
+        print(f"❌ Error profiling data: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': f'Error profiling data: {str(e)}'}), 500
 
 @dashboard_bp.route('/clean-data', methods=['POST'])
@@ -159,19 +171,33 @@ def generate_eda():
     
     try:
         file_path = session['current_file'].get('cleaned_path') or session['current_file']['file_path']
+        print(f"🔍 EDA for file: {file_path}")
+        
         ingestion = IngestionAgent()
         df = ingestion.load_file(file_path)
+        print(f"📊 Data loaded for EDA: {df.shape}")
         
         eda = EDAAgent(df)
+        print("🔍 Generating numeric summary...")
+        numeric_summary = eda.numeric_summary()
+        print("🔍 Generating categorical summary...")
+        categorical_summary = eda.categorical_summary()
+        print("🔍 Generating KPIs...")
+        kpis = eda.generate_kpis()
+        
+        print(f"✅ EDA generated successfully")
         
         return jsonify({
             'success': True,
-            'numeric_summary': eda.numeric_summary(),
-            'categorical_summary': eda.categorical_summary(),
-            'kpis': eda.generate_kpis()
+            'numeric_summary': numeric_summary,
+            'categorical_summary': categorical_summary,
+            'kpis': kpis
         })
         
     except Exception as e:
+        print(f"❌ Error generating EDA: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': f'Error generating EDA: {str(e)}'}), 500
 
 @dashboard_bp.route('/generate-visualization', methods=['POST'])
@@ -222,18 +248,27 @@ def generate_insights():
     
     try:
         file_path = session['current_file'].get('cleaned_path') or session['current_file']['file_path']
+        print(f"🔍 Generating insights for: {file_path}")
+        
         ingestion = IngestionAgent()
         df = ingestion.load_file(file_path)
+        print(f"📊 Data loaded for insights: {df.shape}")
         
         # Use local LLM - NO API KEY NEEDED!
+        print(f"🤖 Initializing Local RAG with model: {local_model}")
         rag_system = RAGSystem(use_local=True, local_model=local_model)
         
         if not rag_system or not rag_system.llm:
+            print("❌ Failed to initialize local RAG system")
             return jsonify({'error': 'Failed to initialize local RAG system. Make sure Ollama is running.'}), 500
         
+        print("✅ RAG system initialized")
+        
         # Generate insights
+        print("🔍 Generating insights...")
         insight_agent = InsightAgent(df, rag_system)
         insights = insight_agent.generate_insights()
+        print(f"✅ Insights generated: {len(insights)} insights")
         
         return jsonify({
             'success': True,
@@ -241,6 +276,9 @@ def generate_insights():
         })
         
     except Exception as e:
+        print(f"❌ Error generating insights: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': f'Error generating insights: {str(e)}'}), 500
 
 @dashboard_bp.route('/ask-question', methods=['POST'])
