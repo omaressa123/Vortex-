@@ -1,7 +1,11 @@
 # Visualization Agent
+import matplotlib
+matplotlib.use('Agg')  # Use non-interactive backend
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
+import io
+import base64
 
 sns.set(style="whitegrid")
 
@@ -14,18 +18,24 @@ class VisualizationAgent:
         self.datetime_cols = df.select_dtypes(include=["datetime64"]).columns.tolist()
 
 
-    #  Numeric Visualization
+    # Numeric Visualization
     def plot_numeric_distribution(self, column):
         fig, axes = plt.subplots(1, 2, figsize=(14, 5))
 
-        sns.histplot(self.df[column], kde=True, ax=axes[0])
+        sns.histplot(self.df[column], kde=True, ax=axes[0], color="#ff2d2d")
         axes[0].set_title(f"Distribution of {column}")
 
-        sns.boxplot(x=self.df[column], ax=axes[1])
+        sns.boxplot(x=self.df[column], ax=axes[1], color="#ff2d2d")
         axes[1].set_title(f"Boxplot of {column}")
 
         plt.tight_layout()
-        return fig
+        # Convert to base64 string
+        img_buffer = io.BytesIO()
+        plt.savefig(img_buffer, format='png', bbox_inches='tight', dpi=80)
+        img_buffer.seek(0)
+        img_base64 = base64.b64encode(img_buffer.getvalue()).decode()
+        plt.close()
+        return img_base64
 
 
     # Categorical Visualization
@@ -33,14 +43,20 @@ class VisualizationAgent:
         counts = self.df[column].value_counts().head(top_n)
 
         fig, ax = plt.subplots(figsize=(10, 5))
-        sns.barplot(x=counts.values, y=counts.index, ax=ax)
+        sns.barplot(x=counts.values, y=counts.index, ax=ax, color="#ff2d2d")
 
         ax.set_title(f"Top {top_n} Categories in {column}")
         ax.set_xlabel("Count")
         ax.set_ylabel(column)
 
         plt.tight_layout()
-        return fig
+        # Convert to base64 string
+        img_buffer = io.BytesIO()
+        plt.savefig(img_buffer, format='png', bbox_inches='tight', dpi=80)
+        img_buffer.seek(0)
+        img_base64 = base64.b64encode(img_buffer.getvalue()).decode()
+        plt.close()
+        return img_base64
 
 
     # Time Series Visualization
@@ -51,16 +67,21 @@ class VisualizationAgent:
         temp = temp.set_index(date_col).resample(freq).sum()
 
         fig, ax = plt.subplots(figsize=(12, 5))
-        sns.lineplot(x=temp.index, y=temp[value_col], ax=ax)
-
-        ax.set_title(f"{value_col} over Time")
+        temp.plot(ax=ax, color="#ff2d2d")
+        ax.set_title(f"Time Series: {value_col}")
         ax.set_xlabel("Date")
         ax.set_ylabel(value_col)
 
         plt.tight_layout()
-        return fig
+        # Convert to base64 string
+        img_buffer = io.BytesIO()
+        plt.savefig(img_buffer, format='png', bbox_inches='tight', dpi=80)
+        img_buffer.seek(0)
+        img_base64 = base64.b64encode(img_buffer.getvalue()).decode()
+        plt.close()
+        return img_base64
 
-    #  Correlation Heatmap
+    # Correlation Heatmap
     def plot_correlation(self):
         if len(self.numeric_cols) < 2:
             return None
@@ -72,13 +93,19 @@ class VisualizationAgent:
             corr,
             annot=True,
             fmt=".2f",
-            cmap="coolwarm",
+            cmap=sns.color_palette(["#ff2d2d", "#1a1a1a"], as_cmap=True),
             ax=ax
         )
 
         ax.set_title("Correlation Heatmap")
         plt.tight_layout()
-        return fig
+        # Convert to base64 string
+        img_buffer = io.BytesIO()
+        plt.savefig(img_buffer, format='png', bbox_inches='tight', dpi=80)
+        img_buffer.seek(0)
+        img_base64 = base64.b64encode(img_buffer.getvalue()).decode()
+        plt.close()
+        return img_base64
 
     # Auto Visualization Selector
     def auto_visualize(self):

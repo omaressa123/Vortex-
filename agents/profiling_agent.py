@@ -41,18 +41,23 @@ class DataProfilingAgent:
                 "unique_values": int(series.nunique())
             }
 
+            
             if col in self.numeric_cols:
+                col_min = series.min()
+                col_max = series.max()
+                col_mean = series.mean()
+                col_std = series.std()
                 col_data.update({
-                    "min": series.min(),
-                    "max": series.max(),
-                    "mean": round(series.mean(), 2),
-                    "std": round(series.std(), 2),
+                    "min": None if pd.isna(col_min) else float(col_min),
+                    "max": None if pd.isna(col_max) else float(col_max),
+                    "mean": None if pd.isna(col_mean) else float(round(col_mean, 2)),
+                    "std": None if pd.isna(col_std) else float(round(col_std, 2)),
                     "outliers": int(self._detect_outliers(series))
                 })
 
             elif col in self.categorical_cols:
                 col_data.update({
-                    "top_values": series.value_counts().head(5).to_dict(),
+                    "top_values": {str(k): int(v) for k, v in series.value_counts().head(5).to_dict().items()},
                     "cardinality": self._cardinality_level(series)
                 })
 
@@ -96,7 +101,6 @@ class DataProfilingAgent:
         score -= duplicates_ratio * 30
 
         score = max(round(score, 2), 0)
-
         return {
             "score": score,
             "status": self._quality_label(score)

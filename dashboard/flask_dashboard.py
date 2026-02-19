@@ -214,6 +214,8 @@ def generate_visualization():
         column = request.json.get('column')
         file_path = session['current_file'].get('cleaned_path') or session['current_file']['file_path']
         
+        print(f"🔍 Generating {viz_type} visualization for column: {column}")
+        
         ingestion = IngestionAgent()
         df = ingestion.load_file(file_path)
         
@@ -221,20 +223,38 @@ def generate_visualization():
         
         if viz_type == 'auto':
             figures = viz_agent.auto_visualize()
-            return jsonify({'success': True, 'figures': figures})
+            # Convert tuples to dicts for frontend compatibility
+            figures_dict = [
+                {'type': t, 'name': n, 'img': img} for (t, n, img) in figures
+            ]
+            print(f" Auto visualization generated: {len(figures_dict) if figures_dict else 0} figures")
+            return jsonify({'success': True, 'figures': figures_dict})
         elif viz_type == 'correlation':
             fig = viz_agent.plot_correlation()
+            print(f" Correlation plot generated")
             return jsonify({'success': True, 'figure': fig})
         elif viz_type == 'distribution' and column:
             fig = viz_agent.plot_numeric_distribution(column)
+            print(f" Distribution plot generated for {column}")
+            return jsonify({'success': True, 'figure': fig})
+        elif viz_type == 'categorical' and column:
+            fig = viz_agent.plot_categorical(column)
+            print(f" Categorical plot generated for {column}")
             return jsonify({'success': True, 'figure': fig})
         elif viz_type == 'time_series' and column:
-            fig = viz_agent.plot_time_series(column)
+            date_col = request.json.get('date_column')
+            if not date_col:
+                return jsonify({'error': 'Date column required for time series'}), 400
+            fig = viz_agent.plot_time_series(date_col, column)
+            print(f" Time series plot generated for {column}")
             return jsonify({'success': True, 'figure': fig})
         else:
             return jsonify({'error': 'Invalid visualization type or missing column'}), 400
-            
+        
     except Exception as e:
+        print(f"❌ Error generating visualization: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': f'Error generating visualization: {str(e)}'}), 500
 
 @dashboard_bp.route('/generate-insights', methods=['POST'])
@@ -244,7 +264,7 @@ def generate_insights():
         return jsonify({'error': 'Authentication required'}), 401
     
     data = request.json
-    local_model = data.get('local_model', 'llama3')
+    local_model = data.get('local_model', 'phi-3')  # Default to phi-3 for low memory
     
     try:
         file_path = session['current_file'].get('cleaned_path') or session['current_file']['file_path']
@@ -288,7 +308,7 @@ def ask_question():
         return jsonify({'error': 'Authentication required'}), 401
     
     data = request.json
-    local_model = data.get('local_model', 'llama3')
+    local_model = data.get('local_model', 'phi-3')  # Default to phi-3 for low memory
     question = data.get('question')
     
     if not question:

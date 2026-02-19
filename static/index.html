@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <title>Vortex - AI Dashboard Generator</title>
   <link rel="stylesheet" href="/static/css/style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
   <style>
     /* Add selection style */
     .layout-card.selected {
@@ -27,22 +28,23 @@
     <h1>Template-Driven Auto Dashboard</h1>
     <p>
       1. Select a Template below. <br>
-      2. Upload your Data. <br>
-      3. AI generates the Dashboard.
+      2. Enter your API key. <br>
+      3. Upload your Data file. <br>
+      4. Test API key to generate Dashboard.
     </p>
     
     <!-- Upload form -->
     <div id="uploadSection" style="display:none; margin-top: 20px; background: rgba(0,0,0,0.5); padding: 20px; border-radius: 10px;">
         <h3>Selected Template: <span id="selectedTemplateName">None</span></h3>
-        <form id="uploadForm" enctype="multipart/form-data">
-        <input type="file" id="fileInput" name="file" accept=".csv,.xlsx,.xls,.json" style="padding:8px; margin-bottom:12px; color: white;">
+        <form id="uploadForm">
+        <input type="text" id="apiKey" placeholder="Enter your API key" style="padding:8px; margin-bottom:12px; width: 100%; color: white; background: rgba(255,255,255,0.1); border: 1px solid #666; border-radius: 4px;">
+        <input type="file" id="fileInput" name="file" accept=".csv,.xlsx,.xls,.json" multiple style="padding:8px; margin-bottom:12px; color: white;">
+        <div style="margin-bottom:12px; font-size:12px; color:#999;">
+            <i class="fas fa-info-circle"></i> You can select multiple files to upload
+        </div>
+        <div id="selectedFiles" style="margin-bottom:12px; font-size:11px; color:#ccc; max-height: 60px; overflow-y: auto;"></div>
         <br>
-        <input type="password" id="apiKey" placeholder="API Key (Optional - OpenAI/DeepSeek)" style="padding:8px; margin-bottom:12px; width: 250px;">
-        <br>
-        <button type="button" onclick="testAPIKey()" style="padding:8px; margin-bottom:8px; width: 250px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">Test API Key</button>
-        <div id="apiTestResult" style="margin-bottom:8px; font-size:12px; color: #28a745;"></div>
-        <br>
-        <button type="button" class="cta-btn" id="uploadBtn" onclick="uploadAndGenerate()">Generate Dashboard 🚀</button>
+        <button type="button" class="cta-btn" id="testApiBtn" onclick="testApiKey()">Test API Key</button>
         <div id="status" style="margin-top:8px; font-size:13px; color:#f16363"></div>
         </form>
     </div>
@@ -146,7 +148,7 @@
             setTimeout(() => {
               // Store dashboard data and redirect
               localStorage.setItem('dashboard_data', JSON.stringify(result.dashboard));
-              window.location.href = "dashboard.html";
+              window.location.href = "dashboard_template.html";
             }, 1000);
           }
         } else {
@@ -159,56 +161,169 @@
       }
     }
 
-  async function uploadAndGenerate() {
-      const fileInput = document.getElementById("fileInput");
+  async function testApiKey() {
       const apiKey = document.getElementById("apiKey").value;
+      const fileInput = document.getElementById("fileInput");
       const status = document.getElementById("status");
-  
-      if (!fileInput.files.length) {
-        status.innerText = "Please select a file";
+
+      if (!apiKey) {
+        status.innerText = "Please enter an API key";
         return;
       }
-  
-      const formData = new FormData();
-      formData.append("file", fileInput.files[0]);
-  
-      status.innerText = "Uploading Data...";
-  
-      try {
-          const response = await fetch("/upload", {
-            method: "POST",
-            body: formData
-          });
-          
-          const result = await response.json();
-          
-          if (response.ok) {
-            // Save info to localStorage
-            localStorage.setItem('file_id', result.file_id);
-            localStorage.setItem('template_image', selectedTemplateImage);
-            localStorage.setItem('api_key', apiKey);
-            
-            status.innerText = "File Uploaded!";
-            
-            // If API key provided, test it and generate dashboard
-            if (apiKey && apiKey.trim() !== '') {
-              status.innerText = "File Uploaded! Testing API key...";
-              setTimeout(() => {
-                testAPIKey(); // This will auto-generate dashboard if successful
-              }, 500);
-            } else {
-              status.innerText = "File Uploaded! Redirecting...";
-              setTimeout(() => {
-                  window.location.href = "dashboard.html";
-              }, 1000);
-            }
-          } else {
-            status.innerText = "Upload failed: " + result.error;
-          }
-      } catch (e) {
-          status.innerText = "Error: " + e.message;
+
+      if (!fileInput.files.length) {
+        status.innerText = "Please select at least one file";
+        return;
       }
-  }
+
+      const files = Array.from(fileInput.files);
+      status.innerText = `Processing ${files.length} file(s)...`;
+
+      try {
+        const formData = new FormData();
+        formData.append("api_key", apiKey);
+        
+        // Add all files to FormData
+        files.forEach((file, index) => {
+          formData.append(`file_${index}`, file);
+        });
+
+        const response = await fetch("http://localhost:8000/test-api-multiple", {
+          method: "POST",
+          body: formData
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          status.innerText = `API key is valid! Processing ${result.files_processed || 1} file(s)...`;
+          
+          // Show file processing details
+          if (result.total_files > 1) {
+            status.innerHTML += `<br><small>Combined ${result.total_rows?.toLocaleString() || 0} rows from ${result.files_processed} files</small>`;
+          }
+          
+          setTimeout(() => {
+            window.location.href = "/dashboard";
+          }, 1500);
+        } else {
+          status.innerText = "Invalid API key: " + result.error;
+        }
+      } catch (e) {
+        status.innerText = "Error testing API key: " + e.message;
+      }
+    }
+
+    // Display selected files
+    document.getElementById('fileInput').addEventListener('change', function(e) {
+        const files = Array.from(e.target.files);
+        const selectedFilesDiv = document.getElementById('selectedFiles');
+        
+        if (files.length === 0) {
+            selectedFilesDiv.innerHTML = '';
+        } else {
+            selectedFilesDiv.innerHTML = `
+                <div style="margin-bottom: 5px;">
+                    <strong>Selected files (${files.length}):</strong>
+                </div>
+                ${files.map((file, index) => `
+                    <div style="margin: 2px 0;">
+                        ${index + 1}. ${file.name} (${(file.size / 1024).toFixed(1)} KB)
+                    </div>
+                `).join('')}
+            `;
+        }
+    });
+
+    function compressDataForStorage(data) {
+      if (!data || data.length === 0) return data;
+      
+      const columns = Object.keys(data[0]);
+      const essentialColumns = [];
+      
+      // Keep only essential columns to save space
+      columns.forEach(col => {
+        const lowerCol = col.toLowerCase();
+        if (lowerCol.includes('date') || lowerCol.includes('time') ||
+            lowerCol.includes('revenue') || lowerCol.includes('sales') || lowerCol.includes('total') || lowerCol.includes('amount') ||
+            lowerCol.includes('cost') || lowerCol.includes('expense') ||
+            lowerCol.includes('customer') || lowerCol.includes('name') || lowerCol.includes('client') ||
+            lowerCol.includes('gender') || lowerCol.includes('sex') ||
+            lowerCol.includes('age') ||
+            lowerCol.includes('category') || lowerCol.includes('product') || lowerCol.includes('type')) {
+          essentialColumns.push(col);
+        }
+      });
+      
+      // If no essential columns found, keep first 5 columns
+      if (essentialColumns.length === 0) {
+        essentialColumns.push(...columns.slice(0, 5));
+      }
+      
+      return data.map(row => {
+        const compressed = {};
+        essentialColumns.forEach(col => {
+          if (row[col] !== undefined) {
+            compressed[col] = row[col];
+          }
+        });
+        return compressed;
+      });
+    }
+
+    function readCSV(file) {
+      return new Promise((resolve, reject) => {
+        Papa.parse(file, {
+          header: true,
+          dynamicTyping: true,
+          skipEmptyLines: true,
+          complete: function(results) {
+            if (results.errors.length > 0) {
+              console.warn('CSV parsing warnings:', results.errors);
+              // Continue with data even if there are warnings
+              if (results.data && results.data.length > 0) {
+                resolve(results.data.filter(row => Object.keys(row).length > 0));
+              } else {
+                reject(new Error('CSV parsing failed - no valid data found'));
+              }
+            } else {
+              resolve(results.data.filter(row => Object.keys(row).length > 0));
+            }
+          },
+          error: function(error) {
+            console.error('CSV parsing error:', error);
+            reject(new Error('Failed to parse CSV file: ' + error.message));
+          }
+        });
+      });
+    }
+
+    function readJSON(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          try {
+            const data = JSON.parse(e.target.result);
+            if (!data) {
+              reject(new Error('JSON file is empty'));
+            } else if (Array.isArray(data)) {
+              resolve(data.filter(row => row && typeof row === 'object'));
+            } else if (typeof data === 'object') {
+              resolve([data]);
+            } else {
+              reject(new Error('Invalid JSON format'));
+            }
+          } catch (error) {
+            console.error('JSON parsing error:', error);
+            reject(new Error('Failed to parse JSON file: ' + error.message));
+          }
+        };
+        reader.onerror = function() {
+          reject(new Error('Failed to read file'));
+        };
+        reader.readAsText(file);
+      });
+    }
 
   // Logo animation
   window.addEventListener("load", () => {

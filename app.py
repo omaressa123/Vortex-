@@ -1,10 +1,12 @@
-from flask import Flask, request, jsonify, send_from_directory, session
-from flask_cors import CORS
-import pandas as pd
 import os
 import uuid
-import json
+from flask import Flask, request, jsonify, render_template, session, redirect, send_from_directory
 from werkzeug.utils import secure_filename
+from flask_cors import CORS
+import sqlite3
+import json
+from datetime import datetime, timedelta
+import pandas as pd
 
 # Import Agents
 from agents.ingestion_agent import IngestionAgent
@@ -12,6 +14,119 @@ from agents.profiling_agent import DataProfilingAgent
 from agents.cleaning_agent import CleaningAgent
 from agents.mapper_agent import MapperAgent
 from rag.rag_engine import RAGSystem
+
+# Initialize database
+def init_db():
+    """Initialize the SQLite database with required tables"""
+    conn = sqlite3.connect('financial_data.db')
+    cursor = conn.cursor()
+    
+    # Create financials table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS financials (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            month TEXT UNIQUE NOT NULL,
+            income REAL NOT NULL,
+            expenses REAL NOT NULL,
+            profit REAL NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
+    conn.commit()
+    conn.close()
+
+def predict_next_month(data):
+    """
+    Predict next month's financials using simple trend analysis
+    data: list of dicts sorted by month
+    """
+    if len(data) < 2:
+        return {
+            "error": "Need at least 2 months of data for prediction",
+            "income": 0,
+            "expenses": 0,
+            "profit": 0
+        }
+    
+    # Get last two months
+    last = data[-1]
+    prev = data[-2]
+    
+    # Calculate growth rates
+    income_growth = (last["income"] - prev["income"]) / prev["income"] if prev["income"] != 0 else 0
+    expense_growth = (last["expenses"] - prev["expenses"]) / prev["expenses"] if prev["expenses"] != 0 else 0
+    
+    # Predict next month
+    predicted_income = last["income"] * (1 + income_growth)
+    predicted_expenses = last["expenses"] * (1 + expense_growth)
+    predicted_profit = predicted_income - predicted_expenses
+    
+    return {
+        "income": round(predicted_income, 2),
+        "expenses": round(predicted_expenses, 2),
+        "profit": round(predicted_profit, 2),
+        "income_growth": round(income_growth * 100, 2),
+        "expense_growth": round(expense_growth * 100, 2),
+        "last_month": last["month"],
+        "data_points": len(data)
+    }
+
+def generate_financial_insight(prediction, last_month_data):
+    """Generate AI-powered financial insight using LLM"""
+    try:
+        from utils.deepseek_llm import ChatDeepSeekRapidAPI
+        from langchain_core.messages import HumanMessage
+        
+        # Get API key from session or use default
+        api_key = session.get('api_key', 'your-default-key')
+        
+        if api_key == 'your-default-key':
+            # Fallback insight if no API key
+            return generate_fallback_insight(prediction, last_month_data)
+        
+        llm = ChatDeepSeekRapidAPI(api_key=api_key)
+        
+        prompt = f"""
+        As a financial advisor for SMEs, analyze this data:
+        
+        Last month performance:
+        - Income: ${last_month_data.get('income', 0):,.2f}
+        - Expenses: ${last_month_data.get('expenses', 0):,.2f}
+        - Profit: ${last_month_data.get('profit', 0):,.2f}
+        
+        Next month prediction:
+        - Predicted Income: ${prediction['income']:,.2f}
+        - Predicted Expenses: ${prediction['expenses']:,.2f}
+        - Predicted Profit: ${prediction['profit']:,.2f}
+        
+        Income growth rate: {prediction.get('income_growth', 0)}%
+        Expense growth rate: {prediction.get('expense_growth', 0)}%
+        
+        Provide a short, actionable financial insight for an SME owner (max 2 sentences).
+        Focus on cash flow management and profitability.
+        """
+        
+        result = llm._generate([HumanMessage(content=prompt)])
+        insight_text = str(result).strip()
+        
+        return insight_text
+        
+    except Exception as e:
+        print(f"Error generating AI insight: {e}")
+        return generate_fallback_insight(prediction, last_month_data)
+
+def generate_fallback_insight(prediction, last_month_data):
+    """Generate fallback insight without AI"""
+    income_growth = prediction.get('income_growth', 0)
+    expense_growth = prediction.get('expense_growth', 0)
+    
+    if income_growth > expense_growth:
+        return f"Your business shows healthy growth with revenue increasing faster than expenses by {income_growth - expense_growth:.1f}%. Maintain this trend for improved profitability."
+    elif expense_growth > income_growth:
+        return f"⚠️ Expenses are growing {expense_growth - income_growth:.1f}% faster than revenue. Consider cost control measures to protect profit margins."
+    else:
+        return f"Revenue and expenses are growing at similar rates. Focus on increasing revenue while maintaining current expense levels for better cash flow."
 
 # Simple template configuration
 def get_template_spec(template_name):
@@ -300,6 +415,275 @@ def user_status():
             'authenticated': False
         }), 401
 
+@app.route('/test-api-multiple', methods=['POST'])
+def test_api_multiple():
+    """Test API key and process multiple files"""
+    if not request.files:
+        return jsonify({'error': 'No files provided'}), 400
+    
+    api_key = request.form.get('api_key')
+    if not api_key:
+        return jsonify({'error': 'API key required'}), 400
+    
+    try:
+        # Test API key first
+        from utils.deepseek_llm import ChatDeepSeekRapidAPI
+        llm = ChatDeepSeekRapidAPI(api_key=api_key)
+        
+        from langchain_core.messages import HumanMessage
+        result = llm._generate([HumanMessage(content="Hello, respond with 'API working'")])
+        
+        # Process uploaded files
+        files = []
+        for key in request.files:
+            file = request.files[key]
+            if file and file.filename != '':
+                filename = secure_filename(file.filename)
+                file_id = str(uuid.uuid4())
+                ext = os.path.splitext(filename)[1]
+                saved_filename = f"{file_id}{ext}"
+                file_path = os.path.join(app.config['UPLOAD_FOLDER'], saved_filename)
+                file.save(file_path)
+                
+                files.append({
+                    'file_id': file_id,
+                    'filename': saved_filename,
+                    'original_name': file.filename
+                })
+        
+        # Generate dashboard from all files (combine data)
+        if files:
+            from agents.ingestion_agent import IngestionAgent
+            from agents.profiling_agent import ProfilingAgent
+            from agents.cleaning_agent import CleaningAgent
+            from agents.mapping_agent import MappingAgent
+            import pandas as pd
+            
+            # Initialize agents
+            ingestion_agent = IngestionAgent()
+            profiling_agent = ProfilingAgent()
+            cleaning_agent = CleaningAgent()
+            mapping_agent = MappingAgent()
+            
+            # Process and combine all files
+            all_data = []
+            combined_profile = None
+            
+            for file_info in files:
+                file_path = os.path.join(app.config['UPLOAD_FOLDER'], file_info['filename'])
+                
+                try:
+                    # Ingest data from each file
+                    data = ingestion_agent.ingest(file_path)
+                    
+                    if data is not None and len(data) > 0:
+                        # Add source file info to each row
+                        if isinstance(data, pd.DataFrame):
+                            data['source_file'] = file_info['original_name']
+                            all_data.append(data)
+                        else:
+                            # Convert to DataFrame if not already
+                            df = pd.DataFrame(data)
+                            df['source_file'] = file_info['original_name']
+                            all_data.append(df)
+                            
+                        print(f"✅ Processed {file_info['original_name']}: {len(data)} rows")
+                    else:
+                        print(f"⚠️ No data in {file_info['original_name']}")
+                        
+                except Exception as e:
+                    print(f"❌ Error processing {file_info['original_name']}: {e}")
+                    continue
+            
+            # Combine all data
+            if all_data:
+                try:
+                    # Concatenate all DataFrames
+                    combined_data = pd.concat(all_data, ignore_index=True)
+                    print(f"📊 Combined data: {len(combined_data)} rows from {len(all_data)} files")
+                    
+                    # Profile combined data
+                    combined_profile = profiling_agent.profile(combined_data)
+                    
+                    # Clean combined data
+                    cleaned_data = cleaning_agent.clean(combined_data, combined_profile)
+                    
+                    # Map to dashboard format
+                    dashboard_data = mapping_agent.map_to_dashboard(cleaned_data, combined_profile)
+                    
+                    # Add file summary info
+                    dashboard_data['file_summary'] = {
+                        'total_files': len(files),
+                        'processed_files': len(all_data),
+                        'total_rows': len(combined_data),
+                        'files': [f['original_name'] for f in files]
+                    }
+                    
+                    return jsonify({
+                        'success': True,
+                        'api_test': {'response': str(result)},
+                        'files_processed': len(all_data),
+                        'total_files': len(files),
+                        'total_rows': len(combined_data),
+                        'files': files,
+                        'dashboard': dashboard_data
+                    })
+                    
+                except Exception as e:
+                    print(f"❌ Error combining data: {e}")
+                    # Fallback to first file if combining fails
+                    first_file = files[0]
+                    file_path = os.path.join(app.config['UPLOAD_FOLDER'], first_file['filename'])
+                    
+                    data = ingestion_agent.ingest(file_path)
+                    profile = profiling_agent.profile(data)
+                    cleaned_data = cleaning_agent.clean(data, profile)
+                    dashboard_data = mapping_agent.map_to_dashboard(cleaned_data, profile)
+                    
+                    return jsonify({
+                        'success': True,
+                        'api_test': {'response': str(result)},
+                        'files_processed': 1,
+                        'total_files': len(files),
+                        'fallback_used': True,
+                        'files': files,
+                        'dashboard': dashboard_data
+                    })
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': 'No valid data found in any uploaded files'
+                }), 400
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'message': 'API key test failed'
+        }), 500
+
+@app.route('/financial/add', methods=['POST'])
+def add_financial_data():
+    """Add monthly financial data"""
+    try:
+        data = request.json
+        month = data.get('month')
+        income = float(data.get('income', 0))
+        expenses = float(data.get('expenses', 0))
+        profit = income - expenses
+        
+        conn = sqlite3.connect('financial_data.db')
+        cursor = conn.cursor()
+        
+        # Insert or update financial data
+        cursor.execute('''
+            INSERT OR REPLACE INTO financials (month, income, expenses, profit)
+            VALUES (?, ?, ?, ?)
+        ''', (month, income, expenses, profit))
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Financial data for {month} saved successfully',
+            'data': {
+                'month': month,
+                'income': income,
+                'expenses': expenses,
+                'profit': profit
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/financial/predict', methods=['GET'])
+def predict_cash_flow():
+    """Predict next month's cash flow"""
+    try:
+        conn = sqlite3.connect('financial_data.db')
+        cursor = conn.cursor()
+        
+        # Get all financial data ordered by month
+        cursor.execute('SELECT month, income, expenses, profit FROM financials ORDER BY month')
+        data = cursor.fetchall()
+        conn.close()
+        
+        if len(data) < 2:
+            return jsonify({
+                'success': False,
+                'error': 'Need at least 2 months of data for prediction',
+                'data_points': len(data)
+            }), 400
+        
+        # Convert to list of dicts
+        financial_data = []
+        for row in data:
+            financial_data.append({
+                'month': row[0],
+                'income': row[1],
+                'expenses': row[2],
+                'profit': row[3]
+            })
+        
+        # Get prediction
+        prediction = predict_next_month(financial_data)
+        
+        # Generate AI insight
+        last_month_data = financial_data[-1]
+        insight = generate_financial_insight(prediction, last_month_data)
+        
+        return jsonify({
+            'success': True,
+            'prediction': prediction,
+            'insight': insight,
+            'historical_data': financial_data,
+            'data_points': len(financial_data)
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/financial/data', methods=['GET'])
+def get_financial_data():
+    """Get all financial data"""
+    try:
+        conn = sqlite3.connect('financial_data.db')
+        cursor = conn.cursor()
+        
+        cursor.execute('SELECT month, income, expenses, profit, created_at FROM financials ORDER BY month')
+        data = cursor.fetchall()
+        conn.close()
+        
+        financial_data = []
+        for row in data:
+            financial_data.append({
+                'month': row[0],
+                'income': row[1],
+                'expenses': row[2],
+                'profit': row[3],
+                'created_at': row[4]
+            })
+        
+        return jsonify({
+            'success': True,
+            'data': financial_data,
+            'count': len(financial_data)
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @app.route('/dashboard/test-api', methods=['POST'])
 def test_api():
     """Test API key connectivity and proceed with dashboard generation"""
@@ -416,6 +800,45 @@ def dashboard():
     if 'user' not in session:
         return redirect('/login')
     return send_from_directory('static', 'dashboard.html')
+
+@app.route('/upload-multiple', methods=['POST'])
+def upload_multiple_files():
+    """Upload multiple files at once"""
+    if not request.files:
+        return jsonify({'error': 'No files provided'}), 400
+    
+    files = []
+    uploaded_files = []
+    
+    # Get all uploaded files
+    for key in request.files:
+        file = request.files[key]
+        if file and file.filename != '':
+            files.append(file)
+    
+    if not files:
+        return jsonify({'error': 'No files selected'}), 400
+    
+    # Process each file
+    for file in files:
+        filename = secure_filename(file.filename)
+        file_id = str(uuid.uuid4())
+        # Preserve extension
+        ext = os.path.splitext(filename)[1]
+        saved_filename = f"{file_id}{ext}"
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], saved_filename)
+        file.save(file_path)
+        
+        uploaded_files.append({
+            'file_id': file_id,
+            'filename': saved_filename,
+            'original_name': file.filename
+        })
+    
+    return jsonify({
+        'message': f'{len(uploaded_files)} files uploaded successfully',
+        'files': uploaded_files
+    })
 
 @app.route('/upload', methods=['POST'])
 def upload_file():

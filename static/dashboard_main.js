@@ -18,9 +18,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Check local LLM status
     checkLocalLLMStatus();
-    
-    // Check authentication status
-    checkAuthStatus();
+    // checkAuthStatus() call removed (function not defined)
 });
 
 // Check local LLM status
@@ -208,9 +206,12 @@ function updateProviderDropdown(providers, config) {
 }
 
 // Update provider information
-document.getElementById('apiProvider').addEventListener('change', function() {
-    updateProviderInfo(this.value);
-});
+const apiProviderElem = document.getElementById('apiProvider');
+if (apiProviderElem) {
+    apiProviderElem.addEventListener('change', function() {
+        updateProviderInfo(this.value);
+    });
+}
 
 function updateProviderInfo(provider) {
     const infoSpan = document.getElementById('providerInfo');
@@ -398,28 +399,104 @@ function showDataPreview(data) {
     `;
 }
 
-function createDataTable(data) {
-    if (!data || data.length === 0) return '<p>No data to display</p>';
+function createKPICards(kpis) {
+    console.log('createKPICards received:', kpis);
+    if (!kpis) return '<p>No KPIs to display</p>';
     
-    let html = '<div class="table-responsive"><table class="table table-striped table-hover"><thead><tr>';
+    let html = '<div class="row">';
     
-    // Headers
-    Object.keys(data[0]).forEach(key => {
-        html += `<th>${key}</th>`;
+    Object.entries(kpis).forEach(([key, value]) => {
+        if (typeof value === 'object' && value !== null) {
+            html += `
+                <div class="col-md-4 mb-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h6 class="card-title">${key}</h6>
+                            <div class="card-text">
+                                ${Object.entries(value).map(([k, v]) => 
+                                    `<div><strong>${k}:</strong> ${v}</div>`
+                                ).join('')}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else {
+            html += `
+                <div class="col-md-3 mb-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h6 class="card-title">${key}</h6>
+                            <div class="card-text">
+                                <h4 class="text-primary">${value}</h4>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
     });
-    html += '</tr></thead><tbody>';
     
-    // Rows
-    data.forEach(row => {
-        html += '<tr>';
-        Object.values(row).forEach(value => {
-            html += `<td>${value !== null ? value : 'N/A'}</td>`;
-        });
-        html += '</tr>';
-    });
-    
-    html += '</tbody></table></div>';
+    html += '</div>';
     return html;
+}
+
+function createDataTable(data) {
+    console.log('createDataTable received:', data);
+    if (!data) return '<p>No data to display</p>';
+    
+    // If data is an object (like column profiles), convert to table format
+    if (typeof data === 'object' && !Array.isArray(data)) {
+        console.log('Processing object data:', Object.keys(data));
+        let html = '<div class="table-responsive"><table class="table table-striped table-hover"><thead><tr>';
+        html += '<th>Column</th><th>Property</th><th>Value</th>';
+        html += '</tr></thead><tbody>';
+        
+        Object.entries(data).forEach(([colName, colData]) => {
+            if (typeof colData === 'object' && colData !== null) {
+                Object.entries(colData).forEach(([prop, value]) => {
+                    // Handle nested objects like top_values
+                    let displayValue = value;
+                    if (typeof value === 'object' && value !== null) {
+                        displayValue = JSON.stringify(value, null, 2);
+                    }
+                    html += `<tr><td>${colName}</td><td>${prop}</td><td>${displayValue !== null ? displayValue : 'N/A'}</td></tr>`;
+                });
+            } else {
+                html += `<tr><td>${colName}</td><td>-</td><td>${colData !== null ? colData : 'N/A'}</td></tr>`;
+            }
+        });
+        
+        html += '</tbody></table></div>';
+        return html;
+    }
+    
+    // If data is an array of objects (original behavior)
+    if (Array.isArray(data) && data.length > 0) {
+        console.log('Processing array data with', data.length, 'items');
+        let html = '<div class="table-responsive"><table class="table table-striped table-hover"><thead><tr>';
+        
+        // Headers
+        Object.keys(data[0]).forEach(key => {
+            html += `<th>${key}</th>`;
+        });
+        html += '</tr></thead><tbody>';
+        
+        // Rows
+        data.forEach(row => {
+            html += '<tr>';
+            Object.values(row).forEach(value => {
+                html += `<td>${value !== null ? value : 'N/A'}</td>`;
+            });
+            html += '</tr>';
+        });
+        
+        html += '</tbody></table></div>';
+        return html;
+    }
+    
+    console.log('No valid data format found');
+    return '<p>No data to display</p>';
 }
 
 // Data Analysis Functions
@@ -435,9 +512,17 @@ async function profileData() {
         });
         
         const result = await response.json();
+        console.log('Profile data response:', result);
         
         if (response.ok && result.success) {
             const resultsDiv = document.getElementById('profilingResults');
+            console.log('Profile data response:', result);
+            console.log('Profile data keys:', Object.keys(result));
+            console.log('Profile data type:', typeof result);
+            console.log('Profile profile:', result.profile);
+            console.log('Profile profile type:', typeof result.profile);
+            
+            // Test: Show raw data
             resultsDiv.innerHTML = `
                 <div class="alert alert-info">
                     <h6><i class="fas fa-chart-line"></i> Data Quality Score</h6>
@@ -445,11 +530,30 @@ async function profileData() {
                         <div class="progress-bar" style="width: ${result.quality_score.score}%">${result.quality_score.score}/100</div>
                     </div>
                 </div>
-                <h6><i class="fas fa-database"></i> Dataset Overview</h6>
-                <pre>${JSON.stringify(result.overview, null, 2)}</pre>
+                <div class="card">
+                    <div class="card-header">
+                        <h6><i class="fas fa-database"></i> Dataset Overview</h6>
+                    </div>
+                    <div class="card-body">
+                        <pre>${JSON.stringify(result.overview, null, 2)}</pre>
+                    </div>
+                </div>
+                <div class="card mt-3">
+                    <div class="card-header">
+                        <h6><i class="fas fa-columns"></i> Column Profiles</h6>
+                    </div>
+                    <div class="card-body">
+                        <div style="background: #f8f9fa; padding: 10px; border-radius: 5px; margin-bottom: 10px;">
+                            <strong>Debug - Raw profile data:</strong><br>
+                            <pre style="font-size: 12px; max-height: 200px; overflow-y: auto;">${JSON.stringify(result.profile, null, 2)}</pre>
+                        </div>
+                        ${createDataTable(result.profile)}
+                    </div>
+                </div>
             `;
             showNotification('Data profiling completed', 'success');
         } else {
+            console.log('Profile data error:', result);
             showNotification('Profiling failed', 'danger');
         }
     } catch (error) {
@@ -533,9 +637,15 @@ async function generateEDA() {
         });
         
         const result = await response.json();
+        console.log('EDA response:', result);
         
         if (response.ok && result.success) {
             const resultsDiv = document.getElementById('edaResults');
+            console.log('EDA response:', result);
+            console.log('EDA numeric_summary:', result.numeric_summary);
+            console.log('EDA categorical_summary:', result.categorical_summary);
+            console.log('EDA kpis:', result.kpis);
+            
             resultsDiv.innerHTML = `
                 <div class="row">
                     <div class="col-md-6">
@@ -544,6 +654,10 @@ async function generateEDA() {
                                 <h6><i class="fas fa-calculator"></i> Numeric Summary</h6>
                             </div>
                             <div class="card-body">
+                                <div style="background: #f8f9fa; padding: 10px; border-radius: 5px; margin-bottom: 10px;">
+                                    <strong>Debug - Raw numeric data:</strong><br>
+                                    <pre style="font-size: 10px; max-height: 150px; overflow-y: auto;">${JSON.stringify(result.numeric_summary, null, 2)}</pre>
+                                </div>
                                 ${createDataTable(result.numeric_summary)}
                             </div>
                         </div>
@@ -554,6 +668,10 @@ async function generateEDA() {
                                 <h6><i class="fas fa-tags"></i> Categorical Summary</h6>
                             </div>
                             <div class="card-body">
+                                <div style="background: #f8f9fa; padding: 10px; border-radius: 5px; margin-bottom: 10px;">
+                                    <strong>Debug - Raw categorical data:</strong><br>
+                                    <pre style="font-size: 10px; max-height: 150px; overflow-y: auto;">${JSON.stringify(result.categorical_summary, null, 2)}</pre>
+                                </div>
                                 ${createDataTable(result.categorical_summary)}
                             </div>
                         </div>
@@ -564,12 +682,17 @@ async function generateEDA() {
                         <h6><i class="fas fa-chart-bar"></i> Key Performance Indicators</h6>
                     </div>
                     <div class="card-body">
+                        <div style="background: #f8f9fa; padding: 10px; border-radius: 5px; margin-bottom: 10px;">
+                            <strong>Debug - Raw KPI data:</strong><br>
+                            <pre style="font-size: 10px; max-height: 150px; overflow-y: auto;">${JSON.stringify(result.kpis, null, 2)}</pre>
+                        </div>
                         ${createKPICards(result.kpis)}
                     </div>
                 </div>
             `;
             showNotification('EDA completed', 'success');
         } else {
+            console.log('EDA error:', result);
             showNotification('EDA generation failed', 'danger');
         }
     } catch (error) {
@@ -637,20 +760,13 @@ async function generateVisualization() {
                         <div class="col-md-6 mb-3">
                             <div class="chart-container">
                                 <h6>${fig.name}</h6>
-                                <canvas id="chart-${index}"></canvas>
+                                ${fig.img ? `<img src="${fig.img.startsWith('data:image') ? fig.img : 'data:image/png;base64,' + fig.img}" style="max-width: 100%; height: auto;" />` : '<span style="color:#fff">No image</span>'}
                             </div>
                         </div>
                     `;
                 });
                 html += '</div>';
                 resultsDiv.innerHTML = html;
-                
-                // Create charts
-                setTimeout(() => {
-                    result.figures.forEach((fig, index) => {
-                        createChart(`chart-${index}`, fig);
-                    });
-                }, 100);
             } else if (result.figure) {
                 // Single figure
                 resultsDiv.innerHTML = `
@@ -675,18 +791,36 @@ async function generateVisualization() {
 }
 
 function createChart(canvasId, figure) {
-    const canvas = document.getElementById(canvasId);
-    if (!canvas || !figure) return;
-    
-    // This is a simplified chart creation - in production, you'd use proper chart libraries
+    const container = document.getElementById(canvasId);
+    if (!container || !figure) return;
+
+    // If figure is an object with base64 image
+    if (typeof figure === 'object' && figure.img && typeof figure.img === 'string' && figure.img.startsWith('iVBOR')) {
+        // If img is base64 PNG without data:image/png;base64, add it
+        container.innerHTML = `<img src="data:image/png;base64,${figure.img}" style="max-width: 100%; height: auto;" />`;
+        return;
+    } else if (typeof figure === 'object' && figure.img && typeof figure.img === 'string' && figure.img.startsWith('data:image')) {
+        // If img is already a data:image string
+        container.innerHTML = `<img src="${figure.img}" style="max-width: 100%; height: auto;" />`;
+        return;
+    } else if (typeof figure === 'string' && figure.startsWith('data:image')) {
+        container.innerHTML = `<img src="${figure}" style="max-width: 100%; height: auto;" />`;
+        return;
+    }
+
+    // Fallback: show placeholder
+    const canvas = document.createElement('canvas');
+    container.innerHTML = '';
+    container.appendChild(canvas);
+
     const ctx = canvas.getContext('2d');
-    
-    // Create a simple bar chart as placeholder
+    if (!ctx) return;
+
     ctx.fillStyle = '#f16363';
-    ctx.fillRect(50, 50, 200, 100);
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = '#ffffff';
     ctx.font = '14px Arial';
-    ctx.fillText('Chart visualization', 60, 100);
+    ctx.fillText('Chart visualization', 10, canvas.height / 2);
 }
 
 // AI Functions

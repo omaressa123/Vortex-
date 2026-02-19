@@ -16,17 +16,18 @@ class EDAAgent:
         for col in self.numeric_cols:
             series = self.df[col]
             summary[col] = {
-                "mean": round(series.mean(), 2),
-                "median": round(series.median(), 2),
-                "std": round(series.std(), 2),
-                "min": series.min(),
-                "max": series.max(),
-                "missing": int(series.isnull().sum()),
-                "outliers": int(self._count_outliers(series))
+                "mean": float(round(series.mean(), 2)),
+                "median": float(round(series.median(), 2)),
+                "std": float(round(series.std(), 2)),
+                "min": float(series.min()),
+                "max": float(series.max()),
+                "q25": float(series.quantile(0.25)),
+                "q75": float(series.quantile(0.75)),
+                "outliers": int(self._detect_outliers(series))
             }
         return summary
 
-    def _count_outliers(self, series):
+    def _detect_outliers(self, series):
         q1 = series.quantile(0.25)
         q3 = series.quantile(0.75)
         iqr = q3 - q1
@@ -42,7 +43,7 @@ class EDAAgent:
             series = self.df[col]
             summary[col] = {
                 "unique_values": int(series.nunique()),
-                "top_values": series.value_counts().head(5).to_dict(),
+                "top_values": {str(k): int(v) for k, v in series.value_counts().head(5).to_dict().items()},
                 "missing": int(series.isnull().sum())
             }
         return summary
@@ -67,25 +68,31 @@ class EDAAgent:
 
         for col in self.numeric_cols:
             kpis[col] = {
-                "total": round(self.df[col].sum(), 2),
-                "average": round(self.df[col].mean(), 2),
-                "max": self.df[col].max(),
-                "min": self.df[col].min()
+                "total": float(round(self.df[col].sum(), 2)),
+                "average": float(round(self.df[col].mean(), 2)),
+                "max": float(self.df[col].max()),
+                "min": float(self.df[col].min())
             }
 
         # Growth KPI 
         if self.datetime_cols and self.numeric_cols:
             time_col = self.datetime_cols[0]
             value_col = self.numeric_cols[0]
-            temp = self.df.sort_values(time_col)
-
-            first = temp[value_col].iloc[0]
-            last = temp[value_col].iloc[-1]
-
-            if first != 0:
-                growth = ((last - first) / abs(first)) * 100
-                kpis["growth_rate_%"] = round(growth, 2)
-
+            
+            # Convert to datetime if needed
+            if not pd.api.types.is_datetime64_any_dtype(self.df[time_col]):
+                self.df[time_col] = pd.to_datetime(self.df[time_col])
+            
+            # Group by time period
+            time_series = self.df.groupby(self.df[time_col].dt.to_period('M'))[value_col].sum()
+            
+            if len(time_series) > 1:
+                growth = ((time_series.iloc[-1] - time_series.iloc[0]) / time_series.iloc[0]) * 100
+                kpis['growth'] = {
+                    "percentage": float(round(growth, 2)),
+                    "trend": "increasing" if growth > 0 else "decreasing"
+                }
+        
         return kpis
 
  
