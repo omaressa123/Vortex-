@@ -175,6 +175,56 @@
         .status-active { background: var(--success-color); }
         .status-inactive { background: var(--warning-color); }
         .status-error { background: var(--danger-color); }
+
+        /* Cleaning Methods Checkboxes */
+        .cleaning-method-card {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            transition: all 0.2s ease;
+        }
+
+        .cleaning-method-card:hover {
+            background: rgba(255,255,255,0.1);
+        }
+
+        .cleaning-method-card label {
+            cursor: pointer;
+            width: 100%;
+        }
+
+        /* Chat Messages */
+        .chat-messages {
+            max-height: 400px;
+            overflow-y: auto;
+            padding: 1rem;
+        }
+
+        .chat-message {
+            margin-bottom: 1rem;
+            padding: 0.75rem 1rem;
+            border-radius: 12px;
+            max-width: 85%;
+        }
+
+        .chat-message.user {
+            background: var(--primary-color);
+            margin-left: auto;
+            color: white;
+        }
+
+        .chat-message.assistant {
+            background: rgba(255,255,255,0.1);
+            margin-right: auto;
+        }
+
+        .chat-message pre {
+            margin: 0;
+            white-space: pre-wrap;
+            font-family: 'Segoe UI', sans-serif;
+        }
     </style>
 </head>
 <body data-theme="default">
@@ -220,55 +270,26 @@
     </div>
 
     <div class="container-fluid mt-4">
-        <!-- API Configuration -->
+        <!-- RAG Status Info -->
         <div class="row mb-4">
             <div class="col-12">
                 <div class="card">
                     <div class="card-header">
                         <h5 class="mb-0">
-                            <i class="fas fa-robot"></i> Local LLM Configuration 
-                            <span class="status-indicator status-inactive" id="apiStatus"></span>
+                            <i class="fas fa-database"></i> Data Analysis Engine
+                            <span class="status-indicator status-inactive" id="engineStatus"></span>
                         </h5>
                     </div>
                     <div class="card-body">
-                        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <label class="form-label">Local Model</label>
-                                <select class="form-select" id="localModel">
-                                    <option value="phi-3">Phi-3 (3.8B) - Low Memory</option>
-                                    <option value="qwen2">Qwen2 (7B) - Balanced</option>
-                                    <option value="mistral">Mistral (7B) - Fast</option>
-                                    <option value="codellama">CodeLlama (7B) - For Code</option>
-                                    <option value="llama3">Llama 3 (8B) - High Memory</option>
-                                </select>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">&nbsp;</label><br>
-                                <button class="btn btn-success w-100" onclick="testLocalLLM()">
-                                    <i class="fas fa-vial"></i> Test Local LLM
-                                </button>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">&nbsp;</label><br>
-                                <button class="btn btn-info w-100" onclick="showLocalSetup()">
-                                    <i class="fas fa-cog"></i> Setup Ollama
-                                </button>
-                            </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle"></i> 
+                                <span id="engineInfo">Upload a data file to start analyzing. No API keys required - everything runs locally!</span>
+                            </small>
+                            <span class="badge bg-success" id="ragDocsBadge" style="display: none;">
+                                <i class="fas fa-check"></i> <span id="ragDocsCount">0</span> knowledge documents
+                            </span>
                         </div>
-                        <div class="row">
-                            <div class="col-12">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <small class="text-muted">
-                                        <i class="fas fa-info-circle"></i> 
-                                        <span id="localInfo">Local LLM - No API keys needed! Works completely offline.</span>
-                                    </small>
-                                    <button class="btn btn-sm btn-outline-success" onclick="pullModel('llama3')">
-                                        <i class="fas fa-download"></i> Pull Llama 3
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="mt-2" id="llmTestResult"></div>
                     </div>
                 </div>
             </div>
@@ -387,8 +408,66 @@
                         </h5>
                     </div>
                     <div class="card-body">
+                        <!-- Cleaning Method Options -->
+                        <div class="mb-3" id="cleaningMethodsSection">
+                            <h6 class="text-muted mb-2"><i class="fas fa-cogs"></i> Cleaning Methods</h6>
+                            <div class="cleaning-method-card">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="method_handle_missing" checked>
+                                    <label class="form-check-label" for="method_handle_missing">
+                                        <strong>Handle Missing Values</strong>
+                                        <small class="d-block text-muted">Drop high-missing columns, fill rest with median/mode</small>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="cleaning-method-card">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="method_remove_duplicates" checked>
+                                    <label class="form-check-label" for="method_remove_duplicates">
+                                        <strong>Remove Duplicates</strong>
+                                        <small class="d-block text-muted">Remove exact duplicate rows</small>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="cleaning-method-card">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="method_knn_impute" checked>
+                                    <label class="form-check-label" for="method_knn_impute">
+                                        <strong>KNN Imputation</strong>
+                                        <small class="d-block text-muted">Use K-Nearest Neighbors to fill remaining missing numeric values</small>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="cleaning-method-card">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="method_statistical_outliers" checked>
+                                    <label class="form-check-label" for="method_statistical_outliers">
+                                        <strong>Statistical Outlier Removal</strong>
+                                        <small class="d-block text-muted">Z-score + IQR combined method</small>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="cleaning-method-card">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="method_isolation_forest" checked>
+                                    <label class="form-check-label" for="method_isolation_forest">
+                                        <strong>Isolation Forest</strong>
+                                        <small class="d-block text-muted">ML-based anomaly detection</small>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="cleaning-method-card">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="method_linear_regression">
+                                    <label class="form-check-label" for="method_linear_regression">
+                                        <strong>Linear Regression Outliers</strong>
+                                        <small class="d-block text-muted">Detect outliers based on regression residuals</small>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
                         <button class="btn btn-warning w-100 mb-3" onclick="cleanData()">
-                            <i class="fas fa-magic"></i> Auto-Clean Data
+                            <i class="fas fa-magic"></i> Clean Data
                         </button>
                         <div id="cleaningResults"></div>
                     </div>
@@ -446,42 +525,42 @@
                 </div>
             </div>
 
-            <!-- AI Insights -->
-            <div class="col-lg-6 mb-4">
-                <div class="card h-100">
-                    <div class="card-header">
-                        <h5 class="mb-0">
-                            <i class="fas fa-lightbulb"></i> AI Insights
-                            <span class="status-indicator status-inactive" id="insightsStatus"></span>
-                        </h5>
-                    </div>
-                    <div class="card-body">
-                        <button class="btn btn-primary w-100 mb-3" onclick="generateInsights()">
-                            <i class="fas fa-brain"></i> Generate AI Insights
-                        </button>
-                        <div id="insightsResults"></div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Conversational RAG -->
-            <div class="col-lg-6 mb-4">
-                <div class="card h-100">
+            <!-- Conversational Data RAG -->
+            <div class="col-12 mb-4">
+                <div class="card">
                     <div class="card-header">
                         <h5 class="mb-0">
                             <i class="fas fa-comments"></i> Ask About Your Data
                             <span class="status-indicator status-inactive" id="chatStatus"></span>
+                            <small class="text-muted ms-2">No API keys needed - powered by local data analysis</small>
                         </h5>
                     </div>
                     <div class="card-body">
+                        <!-- Quick Question Buttons -->
                         <div class="mb-3">
-                            <textarea class="form-control" id="questionInput" rows="3" 
-                                      placeholder="Ask any question about your data..."></textarea>
+                            <small class="text-muted"><i class="fas fa-bolt"></i> Quick Questions:</small>
+                            <div class="mt-2 d-flex flex-wrap gap-2">
+                                <button class="btn btn-outline-light btn-sm" onclick="askQuickQuestion('What are the KPIs?')">📊 KPIs</button>
+                                <button class="btn btn-outline-light btn-sm" onclick="askQuickQuestion('Show me the data summary')">📋 Summary</button>
+                                <button class="btn btn-outline-light btn-sm" onclick="askQuickQuestion('What is the data quality?')">🔍 Quality</button>
+                                <button class="btn btn-outline-light btn-sm" onclick="askQuickQuestion('Show correlations')">🔗 Correlations</button>
+                                <button class="btn btn-outline-light btn-sm" onclick="askQuickQuestion('What are the trends?')">📈 Trends</button>
+                                <button class="btn btn-outline-light btn-sm" onclick="askQuickQuestion('Show distributions')">📊 Distributions</button>
+                                <button class="btn btn-outline-light btn-sm" onclick="askQuickQuestion('What columns exist?')">📂 Schema</button>
+                            </div>
                         </div>
-                        <button class="btn btn-secondary w-100" onclick="askQuestion()">
-                            <i class="fas fa-question"></i> Ask Question
-                        </button>
-                        <div class="mt-3" id="chatResults"></div>
+                        
+                        <!-- Chat History -->
+                        <div class="chat-messages" id="chatMessages"></div>
+                        
+                        <!-- Question Input -->
+                        <div class="input-group mt-3">
+                            <textarea class="form-control" id="questionInput" rows="2" 
+                                      placeholder="Ask any question about your data... (e.g., 'What are the KPIs?', 'Show correlations', 'What is the average revenue?')"></textarea>
+                            <button class="btn btn-primary" onclick="askQuestion()">
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>

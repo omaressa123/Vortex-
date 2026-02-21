@@ -1,98 +1,84 @@
 import pandas as pd
-from langchain_core.prompts import PromptTemplate
 import json
 
-# Try to import local LLM first, fallback to cloud
-try:
-    from utils.local_llm import LocalOllamaLLM, check_ollama_available
-    LOCAL_LLM_AVAILABLE = True
-except ImportError:
-    LOCAL_LLM_AVAILABLE = False
-
-try:
-    from langchain_openai import ChatOpenAI
-    OPENAI_AVAILABLE = True
-except ImportError:
-    OPENAI_AVAILABLE = False
-
 class MapperAgent:
-    def __init__(self, df, api_key=None, use_local=False, local_model="llama3"):
+    """
+    Maps dataframe columns to dashboard template components.
+    Uses heuristic/statistical methods - No API keys required.
+    """
+    
+    def __init__(self, df):
         self.df = df
+        self.numeric_cols = df.select_dtypes(include=['int64', 'float64']).columns.tolist()
+        self.categorical_cols = df.select_dtypes(include=['object', 'category']).columns.tolist()
+        self.datetime_cols = df.select_dtypes(include=['datetime64']).columns.tolist()
         
-        if use_local and LOCAL_LLM_AVAILABLE:
-            # Use local LLM
-            if check_ollama_available():
-                self.llm = LocalOllamaLLM(model=local_model)
-                print(f"🔹 Using Local LLM: {local_model}")
-            else:
-                print("❌ Ollama not running. Please start with: ollama serve")
-                self.llm = None
-        elif api_key and OPENAI_AVAILABLE:
-            # Use OpenAI
-            self.llm = ChatOpenAI(temperature=0, model_name="gpt-3.5-turbo", api_key=api_key)
-            print("🔹 Using OpenAI API")
-        else:
-            print("❌ No LLM available for mapping")
-            self.llm = None
+        # Try to detect date columns from string columns
+        for col in self.categorical_cols[:]:
+            try:
+                pd.to_datetime(df[col].head(5))
+                self.datetime_cols.append(col)
+                self.categorical_cols.remove(col)
+            except (ValueError, TypeError):
+                pass
 
     def map_columns(self, template_spec):
         """
-        Maps dataframe columns to template components using LLM.
+        Maps dataframe columns to template components using heuristics.
         """
-        # 1. Profile the Data (Simplified for Prompt)
-        dtypes = self.df.dtypes.to_dict()
-        sample = self.df.head(3).to_dict()
-        columns_info = []
-        for col, dtype in dtypes.items():
-            columns_info.append(f"- {col} ({dtype})")
+        mapping = {}
+        components = template_spec.get('components', [])
         
-        columns_text = "\n".join(columns_info)
+        # KPI assignments - use numeric columns
+        kpi_count = 0
+        for col in self.numeric_cols[:4]:
+            kpi_count += 1
+            # Decide aggregation based on column name heuristics
+            col_lower = col.lower()
+            if any(kw in col_lower for kw in ['count', 'quantity', 'number', 'qty']):
+                agg = 'sum'
+            elif any(kw in col_lower for kw in ['rate', 'ratio', 'percentage', 'avg', 'average', 'score']):
+                agg = 'avg'
+            else:
+                agg = 'sum'
+            
+            mapping[f'kpi_{kpi_count}'] = {
+                'column': col,
+                'aggregation': agg
+            }
         
-        # 2. Prepare Prompt
-        components_text = json.dumps(template_spec['components'], indent=2)
+        # Chart assignments
+        chart_count = 0
         
-        prompt = f"""
-        You are an intelligent data visualization assistant.
-        Your task is to map the provided dataset columns to the required dashboard components.
+        # Line chart: date vs numeric
+        if self.datetime_cols and self.numeric_cols:
+            chart_count += 1
+            mapping[f'chart_{chart_count}'] = {
+                'x': self.datetime_cols[0],
+                'y': self.numeric_cols[0],
+                'type': 'line'
+            }
         
-        Dataset Columns:
-        {columns_text}
+        # Bar chart: categorical vs numeric
+        if self.categorical_cols and self.numeric_cols:
+            chart_count += 1
+            y_col = self.numeric_cols[1] if len(self.numeric_cols) > 1 else self.numeric_cols[0]
+            mapping[f'chart_{chart_count}'] = {
+                'x': self.categorical_cols[0],
+                'y': y_col,
+                'type': 'bar'
+            }
         
-        Sample Data:
-        {sample}
+        # Pie chart: if we have categorical data
+        if len(self.categorical_cols) > 1 and self.numeric_cols:
+            chart_count += 1
+            mapping[f'chart_{chart_count}'] = {
+                'x': self.categorical_cols[1] if len(self.categorical_cols) > 1 else self.categorical_cols[0],
+                'y': self.numeric_cols[0],
+                'type': 'pie'
+            }
         
-        Dashboard Template Components (JSON):
-        {components_text}
-        
-        Rules:
-        1. For 'kpi' type, choose a numeric column for aggregation (sum/avg) or 'count' for row count.
-        2. For 'line' chart, find a Date/Time column for X-axis and a Numeric column for Y-axis.
-        3. For 'bar' chart, find a Categorical column for X-axis and a Numeric column for Y-axis.
-        4. Return ONLY valid JSON mapping in the following format:
-        {{
-            "kpi_1": {{ "column": "col_name", "aggregation": "sum" }},
-            "chart_main": {{ "x": "date_col", "y": "val_col", "type": "line" }},
-            ...
-        }}
-        5. If no suitable column exists, use "None".
-        
-        JSON Response:
-        """
-        
-        try:
-            response = self.llm.invoke(prompt)
-            mapping_json = response.content.strip()
-            # Clean up markdown code blocks if present
-            if "```json" in mapping_json:
-                mapping_json = mapping_json.split("```json")[1].split("```")[0]
-            elif "```" in mapping_json:
-                mapping_json = mapping_json.split("```")[1].split("```")[0]
-                
-            mapping = json.loads(mapping_json)
-            return mapping
-        except Exception as e:
-            print(f"Error in MapperAgent: {e}")
-            return {}
+        return mapping
 
     def generate_dashboard_data(self, mapping):
         """
@@ -111,8 +97,8 @@ class MapperAgent:
                     col = config.get("column")
                     agg = config.get("aggregation")
                     
-                    if col == "None" or not col:
-                        val = self.df.shape[0] # Default to row count
+                    if col == "None" or not col or col not in self.df.columns:
+                        val = self.df.shape[0]
                         label = "Total Records"
                     elif agg == "sum":
                         val = self.df[col].sum()
@@ -124,8 +110,8 @@ class MapperAgent:
                         val = self.df[col].count()
                         label = f"Count of {col}"
                     else:
-                        val = 0
-                        label = "N/A"
+                        val = self.df[col].sum()
+                        label = f"Total {col}"
                         
                     # Format number
                     if isinstance(val, (int, float)):
@@ -147,28 +133,27 @@ class MapperAgent:
                     chart_type = config.get("type", "bar")
                     
                     if x_col and y_col and x_col != "None" and y_col != "None":
-                        # Group Data
-                        if chart_type == "line":
-                            # Sort by date
-                            try:
-                                self.df[x_col] = pd.to_datetime(self.df[x_col])
-                                chart_df = self.df.groupby(x_col)[y_col].sum().reset_index().sort_values(x_col)
-                                chart_df[x_col] = chart_df[x_col].dt.strftime('%Y-%m-%d')
-                            except:
-                                # Fallback if not date
-                                chart_df = self.df.groupby(x_col)[y_col].sum().reset_index().head(20)
-                        else:
-                            # Bar / Others (Top 10)
-                            chart_df = self.df.groupby(x_col)[y_col].sum().reset_index().sort_values(y_col, ascending=False).head(10)
-                            
-                        data[comp_id] = {
-                            "type": chart_type,
-                            "labels": chart_df[x_col].tolist(),
-                            "datasets": [{
-                                "label": y_col,
-                                "data": chart_df[y_col].tolist()
-                            }]
-                        }
+                        if x_col in self.df.columns and y_col in self.df.columns:
+                            if chart_type == "line":
+                                try:
+                                    self.df[x_col] = pd.to_datetime(self.df[x_col])
+                                    chart_df = self.df.groupby(x_col)[y_col].sum().reset_index().sort_values(x_col)
+                                    chart_df[x_col] = chart_df[x_col].dt.strftime('%Y-%m-%d')
+                                except Exception:
+                                    chart_df = self.df.groupby(x_col)[y_col].sum().reset_index().head(20)
+                            elif chart_type == "pie":
+                                chart_df = self.df.groupby(x_col)[y_col].sum().reset_index().sort_values(y_col, ascending=False).head(8)
+                            else:
+                                chart_df = self.df.groupby(x_col)[y_col].sum().reset_index().sort_values(y_col, ascending=False).head(10)
+                                
+                            data[comp_id] = {
+                                "type": chart_type,
+                                "labels": chart_df[x_col].tolist(),
+                                "datasets": [{
+                                    "label": y_col,
+                                    "data": chart_df[y_col].tolist()
+                                }]
+                            }
             except Exception as e:
                 print(f"Error generating data for {comp_id}: {e}")
                 data[comp_id] = {"error": str(e)}

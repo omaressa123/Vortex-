@@ -16,8 +16,7 @@ from agents.profiling_agent import DataProfilingAgent
 from agents.cleaning_agent import CleaningAgent
 from agents.eda_agent import EDAAgent
 from agents.visualization_agent import VisualizationAgent
-from agents.insight_agent import InsightAgent
-from rag.rag_engine import RAGSystem
+from rag.rag_engine import DataRAGEngine
 
 # Cash Flow Prediction Functions
 def init_cash_flow_db():
@@ -114,18 +113,13 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Sidebar for Configuration
-st.sidebar.header("Configuration")
-api_key = st.sidebar.text_input("OpenAI API Key", type="password")
+# No API keys needed - everything runs locally!
+st.sidebar.header("System Status")
+st.sidebar.success("Local Data Analysis Engine Active")
+st.sidebar.info("No API keys required")
 
-# Initialize RAG System
-rag_system = None
-if api_key:
-    with st.spinner("Initializing RAG System..."):
-        rag_system = RAGSystem(api_key=api_key)
-        st.sidebar.success("RAG System Active")
-else:
-    st.sidebar.warning("RAG System Inactive (Missing API Key)")
+# Initialize local Data RAG Engine
+data_rag_engine = DataRAGEngine()
 
 # File Upload
 st.header("1. Data Ingestion")
@@ -209,11 +203,12 @@ if uploaded_files and len(uploaded_files) > 0:
     
     # TAB 3: Data Cleaning
     with tab3:
-        st.subheader("Data Cleaning (Hybrid: Rule-based + LLM)")
+        st.subheader("Data Cleaning (Methods-based - No API Key Needed)")
         if st.button("Run Auto-Cleaning", key="clean_btn"):
-            cleaner = CleaningAgent(rag_system=rag_system)
+            cleaner = CleaningAgent()
             with st.spinner("Cleaning data..."):
                 cleaned_df = cleaner.clean_data(df, profile)
+                cleaning_report = cleaner.get_cleaning_report()
             
             st.success("Data Cleaned!")
             st.write(f"**Cleaned Data:** {cleaned_df.shape[0]} rows, {cleaned_df.shape[1]} columns")
@@ -223,8 +218,14 @@ if uploaded_files and len(uploaded_files) > 0:
             st.write(f"Rows removed: {len(df) - len(cleaned_df)}")
             st.write(f"Columns removed: {len(df.columns) - len(cleaned_df.columns)}")
             
-            # Update df for next steps
+            if cleaning_report and 'steps' in cleaning_report:
+                with st.expander("Cleaning Report Details"):
+                    for step in cleaning_report['steps']:
+                        st.write(f"**{step.get('method', 'N/A')}** - Rows removed: {step.get('rows_removed', 0)}")
+            
+            # Update df and RAG
             df = cleaned_df
+            data_rag_engine.load_data(df)
             st.dataframe(df.head())
     
     # ============================================================
@@ -433,41 +434,49 @@ if uploaded_files and len(uploaded_files) > 0:
         st.markdown('</div>', unsafe_allow_html=True)
     
     # ============================================================
-    # TAB 6: Insights (LLM + RAG)
+    # TAB 6: Data Insights (Local Analysis)
     # ============================================================
     with tab6:
-        st.subheader("Insights (LLM + RAG)")
-        if rag_system:
-            insight_agent = InsightAgent(df, rag_system)
-            if st.button("Generate AI Insights", key="insight_btn"):
-                with st.spinner("Generating insights..."):
-                    insights = insight_agent.generate_insights()
-                    for insight in insights:
-                        st.write(insight)
-        else:
-            st.info("Enable RAG System (add API Key) to generate AI insights.")
+        st.subheader("Data Insights (No API Key Needed)")
+        if st.button("Generate Insights", key="insight_btn"):
+            with st.spinner("Analyzing data..."):
+                data_rag_engine.load_data(df)
+                summary = data_rag_engine.get_data_summary()
+                
+                st.write("**Dataset Summary:**")
+                st.write(f"Rows: {summary.get('rows', 'N/A')}, Columns: {summary.get('columns', 'N/A')}")
+                
+                if 'kpis' in summary:
+                    st.write("**KPIs:**")
+                    st.json(summary['kpis'])
+                
+                # Basic statistical insights
+                desc = df.describe().to_string()
+                st.write(f"**Statistical Summary:**")
+                st.text(desc)
     
     # ============================================================
-    # TAB 7: Conversational RAG
+    # TAB 7: Conversational Data RAG (Local)
     # ============================================================
     with tab7:
-        st.subheader("Conversational RAG")
-        if rag_system:
-            user_question = st.text_input("Ask a question about your data:", key="rag_question")
-            if user_question:
-                # Schema-aware RAG answer
-                schema_info = str(df.dtypes.to_dict())
-                with st.spinner("Thinking..."):
-                    answer = rag_system.analyze_schema(schema_info + "\nSample Data:\n" + df.head().to_string(), user_question)
-                    st.write(answer)
-                    
-                    # Explainability check
+        st.subheader("Ask About Your Data (No API Key Needed)")
+        st.info("This uses local data analysis - no API keys required!")
+        
+        # Ensure RAG has data
+        if data_rag_engine.df is None:
+            data_rag_engine.load_data(df)
+        
+        user_question = st.text_input("Ask a question about your data:", key="rag_question")
+        if user_question:
+            with st.spinner("Analyzing..."):
+                result = data_rag_engine.answer_question(user_question)
+                st.write(result['answer'])
+                
+                if result.get('sources'):
                     st.write("---")
-                    st.write("**Why this answer?** (Checking rules...)")
-                    rule_check = rag_system.retrieve_rules(user_question)
-                    st.write(f"Relevant Rules found: {rule_check}")
-        else:
-            st.info("Enable RAG System to chat with your data.")
+                    st.write("**Sources:**")
+                    for source in result['sources']:
+                        st.write(f"- {source.get('title', 'Unknown')}")
     
     # ============================================================
     # TAB 8: Cash Flow Prediction

@@ -13,10 +13,12 @@ from agents.profiling_agent import DataProfilingAgent
 from agents.cleaning_agent import CleaningAgent
 from agents.eda_agent import EDAAgent
 from agents.visualization_agent import VisualizationAgent
-from agents.insight_agent import InsightAgent
-from rag.rag_engine import RAGSystem
+from rag.rag_engine import DataRAGEngine
 
 dashboard_bp = Blueprint('dashboard', __name__, url_prefix='/dashboard')
+
+# Dashboard-specific RAG engine instance
+_dashboard_rag = DataRAGEngine()
 
 @dashboard_bp.route('/')
 def dashboard_home():
@@ -49,20 +51,24 @@ def upload_data():
         ingestion = IngestionAgent()
         df = ingestion.load_file(file_path)
         
+        # Initialize RAG with data
+        rag_result = _dashboard_rag.load_data(df)
+        
         # Store file info in session
         session['current_file'] = {
             'filename': filename,
             'file_path': file_path,
-            'shape': df.shape,
+            'shape': list(df.shape),
             'columns': df.columns.tolist()
         }
         
         return jsonify({
             'success': True,
             'data_preview': df.head().to_dict('records'),
-            'shape': df.shape,
+            'shape': list(df.shape),
             'columns': df.columns.tolist(),
-            'dtypes': df.dtypes.astype(str).to_dict()
+            'dtypes': df.dtypes.astype(str).to_dict(),
+            'rag_documents': rag_result['documents_created']
         })
         
     except Exception as e:
@@ -110,7 +116,7 @@ def profile_data():
 
 @dashboard_bp.route('/clean-data', methods=['POST'])
 def clean_data():
-    """Clean data using hybrid approach"""
+    """Clean data using methods-based approach (no API key needed)"""
     if 'user' not in session:
         return jsonify({'error': 'Authentication required'}), 401
     
@@ -118,8 +124,21 @@ def clean_data():
         return jsonify({'error': 'No file loaded'}), 400
     
     try:
-        api_key = request.json.get('api_key')
         file_path = session['current_file']['file_path']
+        
+        # Get cleaning method options from request
+        data = request.json or {}
+        cleaning_methods = data.get('cleaning_methods', {
+            'handle_missing': True,
+            'remove_duplicates': True,
+            'knn_impute': True,
+            'isolation_forest': True,
+            'linear_regression_outliers': False,
+            'statistical_outliers': True,
+            'z_score_threshold': 3.0,
+            'iqr_multiplier': 1.5,
+            'isolation_contamination': 0.01
+        })
         
         ingestion = IngestionAgent()
         df = ingestion.load_file(file_path)
@@ -128,36 +147,38 @@ def clean_data():
         profiler = DataProfilingAgent(df)
         profile = profiler.column_profile()
         
-        # Initialize RAG if API key provided
-        rag_system = None
-        if api_key:
-            rag_system = RAGSystem(api_key=api_key)
-        
-        # Clean data
-        cleaner = CleaningAgent(rag_system=rag_system)
-        cleaned_df = cleaner.clean_data(df, profile)
+        # Clean data (no API key needed)
+        cleaner = CleaningAgent()
+        cleaned_df = cleaner.clean_data(df, profile, methods=cleaning_methods)
+        cleaning_report = cleaner.get_cleaning_report()
         
         # Save cleaned data
         cleaned_filename = f"cleaned_{session['current_file']['filename']}"
         cleaned_path = os.path.join('uploads', cleaned_filename)
         cleaned_df.to_csv(cleaned_path, index=False)
         
+        # Update RAG with cleaned data
+        _dashboard_rag.load_data(cleaned_df)
+        
         # Update session
         session['current_file']['cleaned_filename'] = cleaned_filename
         session['current_file']['cleaned_path'] = cleaned_path
-        session['current_file']['cleaned_shape'] = cleaned_df.shape
+        session['current_file']['cleaned_shape'] = list(cleaned_df.shape)
         
         return jsonify({
             'success': True,
             'cleaned_data_preview': cleaned_df.head().to_dict('records'),
-            'original_shape': df.shape,
-            'cleaned_shape': cleaned_df.shape,
+            'original_shape': list(df.shape),
+            'cleaned_shape': list(cleaned_df.shape),
             'rows_removed': len(df) - len(cleaned_df),
             'columns_removed': len(df.columns) - len(cleaned_df.columns),
-            'cleaned_filename': cleaned_filename
+            'cleaned_filename': cleaned_filename,
+            'cleaning_report': cleaning_report
         })
         
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': f'Error cleaning data: {str(e)}'}), 500
 
 @dashboard_bp.route('/generate-eda', methods=['POST'])
@@ -227,26 +248,26 @@ def generate_visualization():
             figures_dict = [
                 {'type': t, 'name': n, 'img': img} for (t, n, img) in figures
             ]
-            print(f" Auto visualization generated: {len(figures_dict) if figures_dict else 0} figures")
+            print(f"✅ Auto visualization generated: {len(figures_dict) if figures_dict else 0} figures")
             return jsonify({'success': True, 'figures': figures_dict})
         elif viz_type == 'correlation':
             fig = viz_agent.plot_correlation()
-            print(f" Correlation plot generated")
+            print(f"✅ Correlation plot generated")
             return jsonify({'success': True, 'figure': fig})
         elif viz_type == 'distribution' and column:
             fig = viz_agent.plot_numeric_distribution(column)
-            print(f" Distribution plot generated for {column}")
+            print(f"✅ Distribution plot generated for {column}")
             return jsonify({'success': True, 'figure': fig})
         elif viz_type == 'categorical' and column:
             fig = viz_agent.plot_categorical(column)
-            print(f" Categorical plot generated for {column}")
+            print(f"✅ Categorical plot generated for {column}")
             return jsonify({'success': True, 'figure': fig})
         elif viz_type == 'time_series' and column:
             date_col = request.json.get('date_column')
             if not date_col:
                 return jsonify({'error': 'Date column required for time series'}), 400
             fig = viz_agent.plot_time_series(date_col, column)
-            print(f" Time series plot generated for {column}")
+            print(f"✅ Time series plot generated for {column}")
             return jsonify({'success': True, 'figure': fig})
         else:
             return jsonify({'error': 'Invalid visualization type or missing column'}), 400
@@ -257,92 +278,58 @@ def generate_visualization():
         traceback.print_exc()
         return jsonify({'error': f'Error generating visualization: {str(e)}'}), 500
 
-@dashboard_bp.route('/generate-insights', methods=['POST'])
-def generate_insights():
-    """Generate AI insights using Local RAG"""
-    if 'user' not in session:
-        return jsonify({'error': 'Authentication required'}), 401
-    
-    data = request.json
-    local_model = data.get('local_model', 'phi-3')  # Default to phi-3 for low memory
-    
-    try:
-        file_path = session['current_file'].get('cleaned_path') or session['current_file']['file_path']
-        print(f"🔍 Generating insights for: {file_path}")
-        
-        ingestion = IngestionAgent()
-        df = ingestion.load_file(file_path)
-        print(f"📊 Data loaded for insights: {df.shape}")
-        
-        # Use local LLM - NO API KEY NEEDED!
-        print(f"🤖 Initializing Local RAG with model: {local_model}")
-        rag_system = RAGSystem(use_local=True, local_model=local_model)
-        
-        if not rag_system or not rag_system.llm:
-            print("❌ Failed to initialize local RAG system")
-            return jsonify({'error': 'Failed to initialize local RAG system. Make sure Ollama is running.'}), 500
-        
-        print("✅ RAG system initialized")
-        
-        # Generate insights
-        print("🔍 Generating insights...")
-        insight_agent = InsightAgent(df, rag_system)
-        insights = insight_agent.generate_insights()
-        print(f"✅ Insights generated: {len(insights)} insights")
-        
-        return jsonify({
-            'success': True,
-            'insights': insights
-        })
-        
-    except Exception as e:
-        print(f"❌ Error generating insights: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({'error': f'Error generating insights: {str(e)}'}), 500
-
 @dashboard_bp.route('/ask-question', methods=['POST'])
 def ask_question():
-    """Answer questions about data using conversational Local RAG"""
+    """Answer questions about data using Data RAG"""
     if 'user' not in session:
         return jsonify({'error': 'Authentication required'}), 401
     
     data = request.json
-    local_model = data.get('local_model', 'phi-3')  # Default to phi-3 for low memory
     question = data.get('question')
     
     if not question:
         return jsonify({'error': 'Question required'}), 400
     
     try:
-        file_path = session['current_file'].get('cleaned_path') or session['current_file']['file_path']
-        ingestion = IngestionAgent()
-        df = ingestion.load_file(file_path)
+        # Load data if RAG doesn't have it
+        if _dashboard_rag.df is None:
+            if 'current_file' not in session:
+                return jsonify({'error': 'No data loaded. Upload a file first.'}), 400
+            
+            file_path = session['current_file'].get('cleaned_path') or session['current_file']['file_path']
+            ingestion = IngestionAgent()
+            df = ingestion.load_file(file_path)
+            _dashboard_rag.load_data(df)
         
-        # Use local LLM - NO API KEY NEEDED!
-        rag_system = RAGSystem(use_local=True, local_model=local_model)
-        
-        if not rag_system or not rag_system.llm:
-            return jsonify({'error': 'Failed to initialize local RAG system. Make sure Ollama is running.'}), 500
-        
-        # Get schema information and sample data
-        schema_info = str(df.dtypes.to_dict())
-        sample_data = df.head().to_string()
-        
-        # Generate answer
-        answer = rag_system.analyze_schema(
-            schema_info + "\nSample Data:\n" + sample_data, 
-            question
-        )
-        
-        # Get relevant rules
-        rules = rag_system.retrieve_rules(question)
+        # Answer the question
+        result = _dashboard_rag.answer_question(question)
         
         return jsonify({
             'success': True,
-            'answer': answer,
-            'relevant_rules': rules
+            'answer': result['answer'],
+            'sources': result['sources'],
+            'kpis': _serialize_kpis(result.get('kpis', {}))
         })
         
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': f'Error processing question: {str(e)}'}), 500
+
+def _serialize_kpis(kpis):
+    """Convert KPIs to JSON-serializable format"""
+    serialized = {}
+    for key, value in kpis.items():
+        if isinstance(value, dict):
+            serialized[key] = {}
+            for k, v in value.items():
+                if hasattr(v, 'item'):
+                    serialized[key][k] = v.item()
+                else:
+                    serialized[key][k] = v
+        else:
+            if hasattr(value, 'item'):
+                serialized[key] = value.item()
+            else:
+                serialized[key] = value
+    return serialized

@@ -61,51 +61,7 @@ def predict_next_month(data):
     }
 
 def generate_financial_insight(prediction, last_month_data):
-    """Generate AI-powered financial insight using LLM"""
-    try:
-        from utils.deepseek_llm import ChatDeepSeekRapidAPI
-        from langchain_core.messages import HumanMessage
-        
-        # Get API key from session or use default
-        api_key = 'your-default-key'  # You can modify this
-        
-        if api_key == 'your-default-key':
-            # Fallback insight if no API key
-            return generate_fallback_insight(prediction, last_month_data)
-        
-        llm = ChatDeepSeekRapidAPI(api_key=api_key)
-        
-        prompt = f"""
-        As a financial advisor for SMEs, analyze this data:
-        
-        Last month performance:
-        - Income: ${last_month_data.get('income', 0):,.2f}
-        - Expenses: ${last_month_data.get('expenses', 0):,.2f}
-        - Profit: ${last_month_data.get('profit', 0):,.2f}
-        
-        Next month prediction:
-        - Predicted Income: ${prediction['income']:,.2f}
-        - Predicted Expenses: ${prediction['expenses']:,.2f}
-        - Predicted Profit: ${prediction['profit']:,.2f}
-        
-        Income growth rate: {prediction.get('income_growth', 0)}%
-        Expense growth rate: {prediction.get('expense_growth', 0)}%
-        
-        Provide a short, actionable financial insight for an SME owner (max 2 sentences).
-        Focus on cash flow management and profitability.
-        """
-        
-        result = llm._generate([HumanMessage(content=prompt)])
-        insight_text = str(result).strip()
-        
-        return insight_text
-        
-    except Exception as e:
-        print(f"Error generating AI insight: {e}")
-        return generate_fallback_insight(prediction, last_month_data)
-
-def generate_fallback_insight(prediction, last_month_data):
-    """Generate fallback insight without AI"""
+    """Generate financial insight based on data trends (no API needed)"""
     income_growth = prediction.get('income_growth', 0)
     expense_growth = prediction.get('expense_growth', 0)
     

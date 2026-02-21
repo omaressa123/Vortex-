@@ -1,33 +1,37 @@
+"""
+InsightAgent - DEPRECATED
+Insights are now generated directly by the DataRAGEngine.
+This file is kept for backwards compatibility but is not used.
+"""
+
 class InsightAgent:
+    """
+    DEPRECATED: Use DataRAGEngine for data insights instead.
+    This agent previously used LLM/RAG for generating insights.
+    The system now uses the methods-based DataRAGEngine for all insights.
+    """
     def __init__(self, df, rag_system=None):
         self.df = df
-        self.rag_system = rag_system
 
     def generate_insights(self):
         """
-        Generates textual insights using LLM + RAG.
+        Generate basic statistical insights (no LLM needed).
+        For advanced insights, use DataRAGEngine.answer_question() instead.
         """
         insights = []
         
-        # Basic Statistical Insights
+        # Basic Statistical Insights only
         desc = self.df.describe().to_string()
         insights.append(f"Statistical Summary:\n{desc}")
-
-        if not self.rag_system or not self.rag_system.llm:
-            return insights
-
-        # RAG-based Insights
-        # Schema-aware RAG
-        schema_info = str(self.df.dtypes.to_dict())
         
-        # 1. Ask for general trends
-        trend_query = "What are the interesting trends in this data?"
-        trend_insight = self.rag_system.analyze_schema(schema_info + "\nSample Data:\n" + self.df.head().to_string(), trend_query)
-        insights.append(f"Trends:\n{trend_insight}")
+        # Missing value summary
+        missing = self.df.isnull().sum()
+        if missing.any():
+            missing_info = missing[missing > 0].to_string()
+            insights.append(f"Missing Values:\n{missing_info}")
         
-        # 2. Ask for anomalies
-        anomaly_query = "Are there any anomalies or potential data quality issues?"
-        anomaly_insight = self.rag_system.analyze_schema(schema_info + "\nSample Data:\n" + self.df.head().to_string(), anomaly_query)
-        insights.append(f"Anomalies:\n{anomaly_insight}")
-
+        # Data types summary
+        dtypes = self.df.dtypes.value_counts().to_string()
+        insights.append(f"Data Types Distribution:\n{dtypes}")
+        
         return insights

@@ -13,7 +13,7 @@ from agents.ingestion_agent import IngestionAgent
 from agents.profiling_agent import DataProfilingAgent
 from agents.cleaning_agent import CleaningAgent
 from agents.mapper_agent import MapperAgent
-from rag.rag_engine import RAGSystem
+from rag.rag_engine import DataRAGEngine
 
 # Initialize database
 def init_db():
@@ -73,51 +73,7 @@ def predict_next_month(data):
     }
 
 def generate_financial_insight(prediction, last_month_data):
-    """Generate AI-powered financial insight using LLM"""
-    try:
-        from utils.deepseek_llm import ChatDeepSeekRapidAPI
-        from langchain_core.messages import HumanMessage
-        
-        # Get API key from session or use default
-        api_key = session.get('api_key', 'your-default-key')
-        
-        if api_key == 'your-default-key':
-            # Fallback insight if no API key
-            return generate_fallback_insight(prediction, last_month_data)
-        
-        llm = ChatDeepSeekRapidAPI(api_key=api_key)
-        
-        prompt = f"""
-        As a financial advisor for SMEs, analyze this data:
-        
-        Last month performance:
-        - Income: ${last_month_data.get('income', 0):,.2f}
-        - Expenses: ${last_month_data.get('expenses', 0):,.2f}
-        - Profit: ${last_month_data.get('profit', 0):,.2f}
-        
-        Next month prediction:
-        - Predicted Income: ${prediction['income']:,.2f}
-        - Predicted Expenses: ${prediction['expenses']:,.2f}
-        - Predicted Profit: ${prediction['profit']:,.2f}
-        
-        Income growth rate: {prediction.get('income_growth', 0)}%
-        Expense growth rate: {prediction.get('expense_growth', 0)}%
-        
-        Provide a short, actionable financial insight for an SME owner (max 2 sentences).
-        Focus on cash flow management and profitability.
-        """
-        
-        result = llm._generate([HumanMessage(content=prompt)])
-        insight_text = str(result).strip()
-        
-        return insight_text
-        
-    except Exception as e:
-        print(f"Error generating AI insight: {e}")
-        return generate_fallback_insight(prediction, last_month_data)
-
-def generate_fallback_insight(prediction, last_month_data):
-    """Generate fallback insight without AI"""
+    """Generate financial insight without API"""
     income_growth = prediction.get('income_growth', 0)
     expense_growth = prediction.get('expense_growth', 0)
     
@@ -166,85 +122,8 @@ UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-# API Key Configuration - Users can modify these
-API_CONFIG = {
-    'openai': {
-        'key': os.environ.get('OPENAI_API_KEY', 'sk-your-openai-key-here'),
-        'base_url': 'https://api.openai.com/v1',
-        'models': ['gpt-3.5-turbo', 'gpt-4', 'gpt-4-turbo']
-    },
-    'deepseek': {
-        'key': os.environ.get('DEEPSEEK_API_KEY', 'your-deepseek-key-here'),
-        'base_url': 'https://swift-ai.p.rapidapi.com',
-        'models': ['gpt-5', 'deepseek-coder', 'deepseek-chat'],
-        'rapidapi_host': 'swift-ai.p.rapidapi.com'
-    },
-    'anthropic': {
-        'key': os.environ.get('ANTHROPIC_API_KEY', 'sk-ant-your-key-here'),
-        'base_url': 'https://api.anthropic.com/v1',
-        'models': ['claude-3-sonnet', 'claude-3-opus']
-    },
-    'google': {
-        'key': os.environ.get('GOOGLE_API_KEY', 'your-google-key-here'),
-        'base_url': 'https://generativelanguage.googleapis.com/v1beta',
-        'models': ['gemini-pro', 'gemini-pro-vision']
-    }
-}
-
-# Global RAG System (initialized per request or globally if key is constant)
-# In a real app, manage this per user/session
-rag_system = None
-
-def get_api_key(provider='openai', custom_key=None):
-    """Get API key from configuration or custom input"""
-    if custom_key:
-        return custom_key
-    
-    config = API_CONFIG.get(provider, {})
-    return config.get('key')
-
-def get_available_providers():
-    """Get list of available API providers"""
-    return list(API_CONFIG.keys())
-
-def validate_api_key(api_key, provider='openai'):
-    """Validate if API key is properly formatted"""
-    if not api_key:
-        return False
-    
-    # Basic validation based on provider
-    if provider == 'openai':
-        return api_key.startswith('sk-') and len(api_key) > 20
-    elif provider == 'deepseek':
-        return len(api_key) > 10  # Basic check for RapidAPI keys
-    elif provider == 'anthropic':
-        return api_key.startswith('sk-ant-') and len(api_key) > 20
-    elif provider == 'google':
-        return len(api_key) > 10  # Basic check
-    else:
-        return len(api_key) > 5  # Generic check
-
-def get_rag_system(api_key=None, provider='openai', use_local=False, local_model='llama3'):
-    """Initialize RAG system with configurable API key, provider, or local LLM"""
-    global rag_system
-    
-    if use_local:
-        # Use local LLM - NO API KEY NEEDED!
-        if not rag_system or rag_system.api_key != 'local':
-            rag_system = RAGSystem(use_local=True, local_model=local_model)
-        return rag_system
-    
-    # Get API key from custom input, environment, or config
-    key = api_key or get_api_key(provider)
-    
-    if key and validate_api_key(key, provider):
-        # Create unique cache key based on provider and key
-        cache_key = f"{provider}_{key[:10]}"
-        
-        if not rag_system or rag_system.api_key != key:
-            rag_system = RAGSystem(api_key=key)
-        return rag_system
-    return None
+# Global Data RAG Engine (session-based in production)
+data_rag_engine = DataRAGEngine()
 
 @app.route('/')
 def index():
@@ -292,116 +171,6 @@ def logout():
     session.pop('user', None)
     return jsonify({'success': True, 'message': 'Logged out successfully'})
 
-@app.route('/api/local-llm/status')
-def local_llm_status():
-    """Check local LLM status"""
-    try:
-        from utils.local_llm import check_ollama_available, get_available_models
-        is_available = check_ollama_available()
-        models = get_available_models() if is_available else []
-        
-        return jsonify({
-            'available': is_available,
-            'models': models,
-            'message': 'Ollama is running' if is_available else 'Ollama not running. Start with: ollama serve'
-        })
-    except ImportError:
-        return jsonify({
-            'available': False,
-            'models': [],
-            'message': 'Local LLM not available. Install with: pip install requests'
-        })
-
-@app.route('/api/local-llm/setup')
-def local_llm_setup():
-    """Get setup instructions for local LLM"""
-    try:
-        from utils.local_llm import setup_ollama
-        instructions = setup_ollama()
-        return jsonify({
-            'instructions': instructions
-        })
-    except ImportError:
-        return jsonify({
-            'instructions': 'Local LLM not available. Install with: pip install requests'
-        })
-
-@app.route('/api/local-llm/pull', methods=['POST'])
-def pull_local_model():
-    """Pull a model from Ollama"""
-    try:
-        from utils.local_llm import pull_model
-        
-        data = request.json
-        model_name = data.get('model', 'llama3')
-        
-        if pull_model(model_name):
-            return jsonify({
-                'success': True,
-                'message': f'Successfully pulled {model_name}'
-            })
-        else:
-            return jsonify({
-                'success': False,
-                'error': f'Failed to pull {model_name}'
-            }), 500
-            
-    except ImportError:
-        return jsonify({
-            'success': False,
-            'error': 'Local LLM not available'
-        }), 500
-
-@app.route('/api/providers')
-def get_api_providers():
-    """Get available API providers and their configurations"""
-    return jsonify({
-        'providers': get_available_providers(),
-        'config': {k: {
-            'models': v.get('models', []),
-            'base_url': v.get('base_url', ''),
-            'has_key': bool(v.get('key') and v.get('key') not in ['sk-your-openai-key-here', 'your-deepseek-key-here', 'sk-ant-your-key-here', 'your-google-key-here'])
-        } for k, v in API_CONFIG.items()}
-    })
-
-@app.route('/api/test-provider', methods=['POST'])
-def test_api_provider():
-    """Test API key for specific provider"""
-    data = request.json
-    provider = data.get('provider', 'openai')
-    api_key = data.get('api_key')
-    
-    if not api_key:
-        # Use configured key if no custom key provided
-        api_key = get_api_key(provider)
-    
-    if not validate_api_key(api_key, provider):
-        return jsonify({
-            'success': False,
-            'error': f'Invalid API key format for {provider}'
-        }), 400
-    
-    try:
-        # Test with RAG system
-        rag = get_rag_system(api_key, provider)
-        if rag:
-            return jsonify({
-                'success': True,
-                'provider': provider,
-                'message': f'{provider.title()} API key is working'
-            })
-        else:
-            return jsonify({
-                'success': False,
-                'error': 'Failed to initialize RAG system'
-            }), 500
-            
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
 @app.route('/dashboard/user-status')
 def user_status():
     """Check user authentication status"""
@@ -415,152 +184,64 @@ def user_status():
             'authenticated': False
         }), 401
 
-@app.route('/test-api-multiple', methods=['POST'])
-def test_api_multiple():
-    """Test API key and process multiple files"""
-    if not request.files:
-        return jsonify({'error': 'No files provided'}), 400
+# ===== Data RAG Conversation Endpoints =====
+
+@app.route('/api/rag/status')
+def rag_status():
+    """Check RAG engine status"""
+    has_data = data_rag_engine.df is not None
+    return jsonify({
+        'available': True,
+        'has_data': has_data,
+        'documents_count': len(data_rag_engine.data_documents),
+        'message': 'Data loaded and ready for questions' if has_data else 'No data loaded. Upload a file to start.'
+    })
+
+@app.route('/api/rag/ask', methods=['POST'])
+def rag_ask_question():
+    """Ask a question about loaded data using the RAG engine"""
+    data = request.json
+    question = data.get('question')
     
-    api_key = request.form.get('api_key')
-    if not api_key:
-        return jsonify({'error': 'API key required'}), 400
+    if not question:
+        return jsonify({'error': 'Question is required'}), 400
+    
+    if data_rag_engine.df is None:
+        return jsonify({
+            'success': False,
+            'error': 'No data loaded. Please upload a file first.'
+        }), 400
     
     try:
-        # Test API key first
-        from utils.deepseek_llm import ChatDeepSeekRapidAPI
-        llm = ChatDeepSeekRapidAPI(api_key=api_key)
-        
-        from langchain_core.messages import HumanMessage
-        result = llm._generate([HumanMessage(content="Hello, respond with 'API working'")])
-        
-        # Process uploaded files
-        files = []
-        for key in request.files:
-            file = request.files[key]
-            if file and file.filename != '':
-                filename = secure_filename(file.filename)
-                file_id = str(uuid.uuid4())
-                ext = os.path.splitext(filename)[1]
-                saved_filename = f"{file_id}{ext}"
-                file_path = os.path.join(app.config['UPLOAD_FOLDER'], saved_filename)
-                file.save(file_path)
-                
-                files.append({
-                    'file_id': file_id,
-                    'filename': saved_filename,
-                    'original_name': file.filename
-                })
-        
-        # Generate dashboard from all files (combine data)
-        if files:
-            from agents.ingestion_agent import IngestionAgent
-            from agents.profiling_agent import ProfilingAgent
-            from agents.cleaning_agent import CleaningAgent
-            from agents.mapping_agent import MappingAgent
-            import pandas as pd
-            
-            # Initialize agents
-            ingestion_agent = IngestionAgent()
-            profiling_agent = ProfilingAgent()
-            cleaning_agent = CleaningAgent()
-            mapping_agent = MappingAgent()
-            
-            # Process and combine all files
-            all_data = []
-            combined_profile = None
-            
-            for file_info in files:
-                file_path = os.path.join(app.config['UPLOAD_FOLDER'], file_info['filename'])
-                
-                try:
-                    # Ingest data from each file
-                    data = ingestion_agent.ingest(file_path)
-                    
-                    if data is not None and len(data) > 0:
-                        # Add source file info to each row
-                        if isinstance(data, pd.DataFrame):
-                            data['source_file'] = file_info['original_name']
-                            all_data.append(data)
-                        else:
-                            # Convert to DataFrame if not already
-                            df = pd.DataFrame(data)
-                            df['source_file'] = file_info['original_name']
-                            all_data.append(df)
-                            
-                        print(f"✅ Processed {file_info['original_name']}: {len(data)} rows")
-                    else:
-                        print(f"⚠️ No data in {file_info['original_name']}")
-                        
-                except Exception as e:
-                    print(f"❌ Error processing {file_info['original_name']}: {e}")
-                    continue
-            
-            # Combine all data
-            if all_data:
-                try:
-                    # Concatenate all DataFrames
-                    combined_data = pd.concat(all_data, ignore_index=True)
-                    print(f"📊 Combined data: {len(combined_data)} rows from {len(all_data)} files")
-                    
-                    # Profile combined data
-                    combined_profile = profiling_agent.profile(combined_data)
-                    
-                    # Clean combined data
-                    cleaned_data = cleaning_agent.clean(combined_data, combined_profile)
-                    
-                    # Map to dashboard format
-                    dashboard_data = mapping_agent.map_to_dashboard(cleaned_data, combined_profile)
-                    
-                    # Add file summary info
-                    dashboard_data['file_summary'] = {
-                        'total_files': len(files),
-                        'processed_files': len(all_data),
-                        'total_rows': len(combined_data),
-                        'files': [f['original_name'] for f in files]
-                    }
-                    
-                    return jsonify({
-                        'success': True,
-                        'api_test': {'response': str(result)},
-                        'files_processed': len(all_data),
-                        'total_files': len(files),
-                        'total_rows': len(combined_data),
-                        'files': files,
-                        'dashboard': dashboard_data
-                    })
-                    
-                except Exception as e:
-                    print(f"❌ Error combining data: {e}")
-                    # Fallback to first file if combining fails
-                    first_file = files[0]
-                    file_path = os.path.join(app.config['UPLOAD_FOLDER'], first_file['filename'])
-                    
-                    data = ingestion_agent.ingest(file_path)
-                    profile = profiling_agent.profile(data)
-                    cleaned_data = cleaning_agent.clean(data, profile)
-                    dashboard_data = mapping_agent.map_to_dashboard(cleaned_data, profile)
-                    
-                    return jsonify({
-                        'success': True,
-                        'api_test': {'response': str(result)},
-                        'files_processed': 1,
-                        'total_files': len(files),
-                        'fallback_used': True,
-                        'files': files,
-                        'dashboard': dashboard_data
-                    })
-            else:
-                return jsonify({
-                    'success': False,
-                    'error': 'No valid data found in any uploaded files'
-                }), 400
-        
+        result = data_rag_engine.answer_question(question)
+        return jsonify({
+            'success': True,
+            'answer': result['answer'],
+            'sources': result['sources'],
+            'kpis': result['kpis']
+        })
     except Exception as e:
         return jsonify({
             'success': False,
-            'error': str(e),
-            'message': 'API key test failed'
+            'error': f'Error answering question: {str(e)}'
         }), 500
+
+@app.route('/api/rag/summary')
+def rag_data_summary():
+    """Get data summary from RAG engine"""
+    if data_rag_engine.df is None:
+        return jsonify({
+            'success': False,
+            'error': 'No data loaded'
+        }), 400
+    
+    summary = data_rag_engine.get_data_summary()
+    return jsonify({
+        'success': True,
+        **summary
+    })
+
+# ===== Financial Endpoints =====
 
 @app.route('/financial/add', methods=['POST'])
 def add_financial_data():
@@ -633,7 +314,7 @@ def predict_cash_flow():
         # Get prediction
         prediction = predict_next_month(financial_data)
         
-        # Generate AI insight
+        # Generate insight (no API needed)
         last_month_data = financial_data[-1]
         insight = generate_financial_insight(prediction, last_month_data)
         
@@ -684,116 +365,7 @@ def get_financial_data():
             'error': str(e)
         }), 500
 
-@app.route('/dashboard/test-api', methods=['POST'])
-def test_api():
-    """Test API key connectivity and proceed with dashboard generation"""
-    data = request.json
-    api_key = data.get('api_key')
-    file_id = data.get('file_id')
-    template_image = data.get('template_image')
-    
-    if not api_key:
-        return jsonify({'error': 'API key required'}), 400
-    
-    try:
-        # Test with DeepSeek API
-        from utils.deepseek_llm import ChatDeepSeekRapidAPI
-        llm = ChatDeepSeekRapidAPI(api_key=api_key)
-        
-        # Simple test message
-        from langchain_core.messages import HumanMessage
-        result = llm._generate([HumanMessage(content="Hello, respond with 'API working'")])
-        
-        response_text = result.generations[0].message.content
-        
-        # If file_id and template_image provided, proceed with dashboard generation
-        if file_id and template_image:
-            try:
-                # Load Data
-                file_path = None
-                for f in os.listdir(app.config['UPLOAD_FOLDER']):
-                    if f.startswith(file_id):
-                        file_path = os.path.join(app.config['UPLOAD_FOLDER'], f)
-                        break
-                        
-                if not file_path:
-                    return jsonify({'success': False, 'error': 'File not found'}), 404
-
-                # Ingestion
-                ingestion = IngestionAgent()
-                df = ingestion.load_file(file_path)
-                
-                # Initialize RAG
-                rag = get_rag_system(api_key)
-                
-                # Profiling & Cleaning
-                profiler = DataProfilingAgent(df)
-                profile = profiler.column_profile()
-                
-                cleaner = CleaningAgent(rag_system=rag)
-                cleaned_df = cleaner.clean_data(df, profile)
-                
-                # Get Template Spec
-                template_spec = get_template_spec(os.path.basename(template_image))
-                
-                # AI Mapping
-                if rag:
-                    try:
-                        mapper = MapperAgent(cleaned_df, api_key=rag.api_key)
-                        mapping = mapper.map_columns(template_spec)
-                        if not mapping:
-                            mapping = heuristic_mapping(cleaned_df, template_spec)
-                    except Exception:
-                        mapping = heuristic_mapping(cleaned_df, template_spec)
-                else:
-                    mapping = heuristic_mapping(cleaned_df, template_spec)
-                    
-                # Generate Dashboard Data
-                if rag:
-                    try:
-                        dashboard_data = mapper.generate_dashboard_data(mapping)
-                    except Exception:
-                        dashboard_data = generate_simple_data(cleaned_df, mapping)
-                else:
-                    dashboard_data = generate_simple_data(cleaned_df, mapping)
-                
-                return jsonify({
-                    'success': True,
-                    'api_test': {
-                        'response': response_text,
-                        'message': 'API key is working'
-                    },
-                    'dashboard': {
-                        'status': 'success',
-                        'template': template_spec,
-                        'mapping': mapping,
-                        'data': dashboard_data
-                    }
-                })
-                
-            except Exception as e:
-                return jsonify({
-                    'success': True,
-                    'api_test': {
-                        'response': response_text,
-                        'message': 'API key is working but dashboard generation failed'
-                    },
-                    'error': f'Dashboard generation failed: {str(e)}'
-                }), 500
-        
-        # Just API test without dashboard generation
-        return jsonify({
-            'success': True,
-            'response': response_text,
-            'message': 'API key is working'
-        })
-        
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e),
-            'message': 'API key test failed'
-        }), 500
+# ===== Dashboard & Upload Endpoints =====
 
 @app.route('/dashboard')
 def dashboard():
@@ -814,203 +386,298 @@ def upload_multiple_files():
     for key in request.files:
         file = request.files[key]
         if file and file.filename != '':
-            files.append(file)
-    
-    if not files:
-        return jsonify({'error': 'No files selected'}), 400
-    
-    # Process each file
-    for file in files:
-        filename = secure_filename(file.filename)
-        file_id = str(uuid.uuid4())
-        # Preserve extension
-        ext = os.path.splitext(filename)[1]
-        saved_filename = f"{file_id}{ext}"
-        file_path = os.path.join(app.config['UPLOAD_FOLDER'], saved_filename)
-        file.save(file_path)
-        
-        uploaded_files.append({
-            'file_id': file_id,
-            'filename': saved_filename,
-            'original_name': file.filename
-        })
+            filename = secure_filename(file.filename)
+            file_id = str(uuid.uuid4())
+            ext = os.path.splitext(filename)[1]
+            saved_filename = f"{file_id}{ext}"
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], saved_filename)
+            file.save(file_path)
+            
+            files.append({
+                'file_id': file_id,
+                'filename': saved_filename,
+                'original_name': file.filename
+            })
     
     return jsonify({
-        'message': f'{len(uploaded_files)} files uploaded successfully',
-        'files': uploaded_files
+        'success': True,
+        'files': files,
+        'message': f'{len(files)} files uploaded successfully'
     })
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
+    """Upload a single file and initialize RAG"""
     if 'file' not in request.files:
-        return jsonify({'error': 'No file part'}), 400
+        return jsonify({'error': 'No file provided'}), 400
     
     file = request.files['file']
     if file.filename == '':
-        return jsonify({'error': 'No selected file'}), 400
-        
-    if file:
+        return jsonify({'error': 'No file selected'}), 400
+    
+    try:
         filename = secure_filename(file.filename)
         file_id = str(uuid.uuid4())
-        # Preserve extension
         ext = os.path.splitext(filename)[1]
         saved_filename = f"{file_id}{ext}"
         file_path = os.path.join(app.config['UPLOAD_FOLDER'], saved_filename)
         file.save(file_path)
         
-        return jsonify({
-            'message': 'File uploaded successfully', 
-            'file_id': file_id,
-            'filename': saved_filename
-        })
-
-@app.route('/generate-dashboard', methods=['POST'])
-def generate_dashboard():
-    data = request.json
-    file_id = data.get('file_id')
-    template_image = data.get('template_image') # e.g., "1.jpeg"
-    api_key = data.get('api_key') # Optional: receive API key from frontend
-    
-    if not file_id or not template_image:
-        return jsonify({'error': 'Missing file_id or template_image'}), 400
-
-    # 1. Load Data
-    # Find file with any extension
-    file_path = None
-    for f in os.listdir(app.config['UPLOAD_FOLDER']):
-        if f.startswith(file_id):
-            file_path = os.path.join(app.config['UPLOAD_FOLDER'], f)
-            break
-            
-    if not file_path:
-        return jsonify({'error': 'File not found'}), 404
-
-    try:
-        # Ingestion
+        # Load data
         ingestion = IngestionAgent()
         df = ingestion.load_file(file_path)
         
-        # 2. Initialize RAG
-        rag = get_rag_system(api_key)
+        # Initialize RAG with the data
+        rag_result = data_rag_engine.load_data(df)
         
-        # 3. Profiling & Cleaning
+        # Store file info in session
+        session['current_file'] = {
+            'filename': saved_filename,
+            'original_name': file.filename,
+            'file_path': file_path,
+            'file_id': file_id,
+            'shape': list(df.shape),
+            'columns': df.columns.tolist()
+        }
+        
+        return jsonify({
+            'success': True,
+            'file_id': file_id,
+            'filename': saved_filename,
+            'original_name': file.filename,
+            'shape': list(df.shape),
+            'columns': df.columns.tolist(),
+            'dtypes': df.dtypes.astype(str).to_dict(),
+            'preview': df.head(10).to_dict('records'),
+            'rag_documents': rag_result['documents_created'],
+            'kpis': _serialize_kpis(rag_result.get('kpis', {}))
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/process', methods=['POST'])
+def process_file():
+    """Process uploaded file: profiling, cleaning, and analysis"""
+    data = request.json
+    file_id = data.get('file_id')
+    
+    # Get cleaning method options from request
+    cleaning_methods = data.get('cleaning_methods', {
+        'handle_missing': True,
+        'remove_duplicates': True,
+        'knn_impute': True,
+        'isolation_forest': True,
+        'linear_regression_outliers': False,
+        'statistical_outliers': True,
+        'z_score_threshold': 3.0,
+        'iqr_multiplier': 1.5,
+        'isolation_contamination': 0.01
+    })
+    
+    try:
+        # Find uploaded file
+        file_path = None
+        for f in os.listdir(app.config['UPLOAD_FOLDER']):
+            if f.startswith(file_id):
+                file_path = os.path.join(app.config['UPLOAD_FOLDER'], f)
+                break
+        
+        if not file_path:
+            return jsonify({'error': 'File not found'}), 404
+        
+        # Load data
+        ingestion = IngestionAgent()
+        df = ingestion.load_file(file_path)
+        
+        # 1. Profiling
         profiler = DataProfilingAgent(df)
         profile = profiler.column_profile()
+        quality_score = profiler.data_quality_score()
+        overview = profiler.dataset_overview()
         
-        cleaner = CleaningAgent(rag_system=rag)
-        cleaned_df = cleaner.clean_data(df, profile)
+        # 2. Cleaning (Methods-based, no API key needed)
+        cleaner = CleaningAgent()
+        cleaned_df = cleaner.clean_data(df, profile, methods=cleaning_methods)
+        cleaning_report = cleaner.get_cleaning_report()
         
-        # 4. Get Template Spec
-        template_spec = get_template_spec(os.path.basename(template_image))
+        # Save cleaned data
+        cleaned_filename = f"cleaned_{os.path.basename(file_path)}"
+        cleaned_path = os.path.join(app.config['UPLOAD_FOLDER'], cleaned_filename)
+        cleaned_df.to_csv(cleaned_path, index=False)
         
-        # 5. AI Mapping (The "Brain")
-        if rag:
-            try:
-                mapper = MapperAgent(cleaned_df, api_key=rag.api_key)
-                mapping = mapper.map_columns(template_spec)
-                if not mapping:
-                    mapping = heuristic_mapping(cleaned_df, template_spec)
-            except Exception:
-                mapping = heuristic_mapping(cleaned_df, template_spec)
-        else:
-            mapping = heuristic_mapping(cleaned_df, template_spec)
-            
-        # 6. Generate Data for Frontend
-        if rag:
-            try:
-                dashboard_data = mapper.generate_dashboard_data(mapping)
-            except Exception:
-                dashboard_data = generate_simple_data(cleaned_df, mapping)
-        else:
-            dashboard_data = generate_simple_data(cleaned_df, mapping)
-            
+        # 3. Update RAG with cleaned data
+        rag_result = data_rag_engine.load_data(cleaned_df)
+        
+        # 4. Store cleaned file info
+        session['current_file'] = session.get('current_file', {})
+        session['current_file']['cleaned_path'] = cleaned_path
+        session['current_file']['cleaned_filename'] = cleaned_filename
+        session['current_file']['cleaned_shape'] = list(cleaned_df.shape)
+        
         return jsonify({
-            'status': 'success',
-            'template': template_spec,
-            'mapping': mapping,
-            'data': dashboard_data
+            'success': True,
+            'profiling': {
+                'overview': overview,
+                'quality_score': quality_score,
+                'column_profile': profile
+            },
+            'cleaning': {
+                'original_shape': list(df.shape),
+                'cleaned_shape': list(cleaned_df.shape),
+                'report': cleaning_report,
+                'cleaned_filename': cleaned_filename,
+                'preview': cleaned_df.head(10).to_dict('records')
+            },
+            'rag': {
+                'documents': rag_result['documents_created'],
+                'kpis': _serialize_kpis(rag_result.get('kpis', {}))
+            }
         })
-
+        
     except Exception as e:
         import traceback
         traceback.print_exc()
-        return jsonify({'error': str(e)}), 500
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+def _serialize_kpis(kpis):
+    """Convert KPIs to JSON-serializable format"""
+    serialized = {}
+    for key, value in kpis.items():
+        if isinstance(value, dict):
+            serialized[key] = {}
+            for k, v in value.items():
+                if hasattr(v, 'item'):  # numpy types
+                    serialized[key][k] = v.item()
+                else:
+                    serialized[key][k] = v
+        else:
+            if hasattr(value, 'item'):
+                serialized[key] = value.item()
+            else:
+                serialized[key] = value
+    return serialized
+
+# ===== Heuristic Mapping (No LLM Required) =====
 
 def heuristic_mapping(df, template_spec):
-    """
-    Simple fallback if no LLM is available.
-    """
+    """Map data columns to template without using LLM"""
     mapping = {}
-    nums = df.select_dtypes(include=['number']).columns.tolist()
-    cats = df.select_dtypes(include=['object', 'category']).columns.tolist()
-    dates = df.select_dtypes(include=['datetime']).columns.tolist()
+    num_cols = df.select_dtypes(include=['number']).columns.tolist()
+    cat_cols = df.select_dtypes(include=['object']).columns.tolist()
+    date_cols = df.select_dtypes(include=['datetime64']).columns.tolist()
     
-    # Try to convert object cols to date if they look like it
-    if not dates:
-        for col in cats:
-            if 'date' in col.lower() or 'time' in col.lower():
-                dates.append(col)
-
-    for comp in template_spec['components']:
-        cid = comp['id']
-        ctype = comp['type']
-        
-        if ctype == 'kpi':
-            if nums:
-                mapping[cid] = {"column": nums[0], "aggregation": "sum"}
-                # Rotate
-                nums.append(nums.pop(0))
-            else:
-                mapping[cid] = {"column": None, "aggregation": "count"}
-                
-        elif ctype in ('line', 'line_chart'):
-            if dates and nums:
-                mapping[cid] = {"x": dates[0], "y": nums[0], "type": "line"}
-            elif len(nums) >= 2:
-                 mapping[cid] = {"x": nums[0], "y": nums[1], "type": "line"}
-            else:
-                mapping[cid] = None
-                
-        elif ctype in ('bar', 'bar_chart'):
-            if cats and nums:
-                mapping[cid] = {"x": cats[0], "y": nums[0], "type": "bar"}
-            else:
-                mapping[cid] = None
-                
+    # Also check string columns that look like dates
+    for col in cat_cols[:]:
+        try:
+            pd.to_datetime(df[col].head(5))
+            date_cols.append(col)
+            cat_cols.remove(col)
+        except (ValueError, TypeError):
+            pass
+    
+    kpi_count = 0
+    chart_count = 0
+    
+    # Map KPIs from numeric columns
+    for col in num_cols[:4]:
+        kpi_count += 1
+        mapping[f'kpi_{kpi_count}'] = {
+            'column': col,
+            'aggregation': 'sum'
+        }
+    
+    # Map charts
+    if date_cols and num_cols:
+        chart_count += 1
+        mapping[f'chart_{chart_count}'] = {
+            'x': date_cols[0],
+            'y': num_cols[0],
+            'type': 'line'
+        }
+    
+    if cat_cols and num_cols:
+        chart_count += 1
+        y_col = num_cols[1] if len(num_cols) > 1 else num_cols[0]
+        mapping[f'chart_{chart_count}'] = {
+            'x': cat_cols[0],
+            'y': y_col,
+            'type': 'bar'
+        }
+    
     return mapping
 
 def generate_simple_data(df, mapping):
-    # Re-use the logic from MapperAgent but without the class overhead for fallback
-    # Actually, MapperAgent logic is pure python mostly, so we can reuse it if we instantiated it with None
-    # But let's just duplicate a simple version or instantiate MapperAgent with None
-    
-    # We can instantiate MapperAgent with None key if we modify it to handle it
-    # But let's just implement a basic version here for safety
+    """Generate dashboard data from mapping without LLM"""
     data = {}
+    
     for comp_id, config in mapping.items():
-        if not config:
-             data[comp_id] = {"value": "N/A", "label": "No Data"}
-             continue
-             
-        if "aggregation" in config:
-             col = config["column"]
-             if col and col in df.columns:
-                 val = df[col].sum() if config["aggregation"] == "sum" else df[col].count()
-                 data[comp_id] = {"value": str(round(val, 2)), "label": col}
-             else:
-                 data[comp_id] = {"value": str(len(df)), "label": "Count"}
-        elif "x" in config:
-             # Charts
-             x = config["x"]
-             y = config["y"]
-             if x in df.columns and y in df.columns:
-                 grp = df.groupby(x)[y].sum().head(10)
-                 data[comp_id] = {
-                     "type": config.get("type", "bar"),
-                     "labels": grp.index.astype(str).tolist(),
-                     "datasets": [{"label": y, "data": grp.values.tolist()}]
-                 }
+        try:
+            if 'aggregation' in config:
+                col = config.get('column')
+                agg = config.get('aggregation', 'sum')
+                
+                if col and col in df.columns:
+                    if agg == 'sum':
+                        val = df[col].sum()
+                    elif agg == 'avg':
+                        val = df[col].mean()
+                    elif agg == 'count':
+                        val = df[col].count()
+                    else:
+                        val = df[col].sum()
+                    
+                    if isinstance(val, (int, float)):
+                        if val > 1000000:
+                            val_str = f"{val/1000000:.1f}M"
+                        elif val > 1000:
+                            val_str = f"{val/1000:.1f}K"
+                        else:
+                            val_str = f"{val:.1f}"
+                    else:
+                        val_str = str(val)
+                    
+                    data[comp_id] = {'value': val_str, 'label': f"Total {col}"}
+                    
+            elif 'x' in config and 'y' in config:
+                x_col = config.get('x')
+                y_col = config.get('y')
+                chart_type = config.get('type', 'bar')
+                
+                if x_col and y_col and x_col in df.columns and y_col in df.columns:
+                    if chart_type == 'line':
+                        try:
+                            df[x_col] = pd.to_datetime(df[x_col])
+                            chart_df = df.groupby(x_col)[y_col].sum().reset_index().sort_values(x_col)
+                            chart_df[x_col] = chart_df[x_col].dt.strftime('%Y-%m-%d')
+                        except Exception:
+                            chart_df = df.groupby(x_col)[y_col].sum().reset_index().head(20)
+                    else:
+                        chart_df = df.groupby(x_col)[y_col].sum().reset_index().sort_values(y_col, ascending=False).head(10)
+                    
+                    data[comp_id] = {
+                        'type': chart_type,
+                        'labels': chart_df[x_col].tolist(),
+                        'datasets': [{
+                            'label': y_col,
+                            'data': chart_df[y_col].tolist()
+                        }]
+                    }
+        except Exception as e:
+            print(f"Error generating data for {comp_id}: {e}")
+            data[comp_id] = {'error': str(e)}
+    
     return data
 
+# Initialize database on startup
+init_db()
+
 if __name__ == '__main__':
-    app.run(port=8000, debug=True)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=True)

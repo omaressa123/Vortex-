@@ -48,7 +48,12 @@ class ChatDeepSeekRapidAPI(BaseChatModel):
         try:
             print(f"Making API call to: {self.api_url}")
             print(f"Headers: {headers}")
-            print(f"Payload: {json.dumps(payload, indent=2)}")
+            # Create a safe payload for logging (api_messages is already a dict list)
+            safe_payload = {
+                "model": self.model,
+                "messages": api_messages
+            }
+            print(f"Payload: {json.dumps(safe_payload, indent=2)}")
             
             response = requests.post(
                 self.api_url, 
