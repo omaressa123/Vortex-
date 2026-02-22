@@ -104,19 +104,118 @@ def generate_financial_insight(prediction, last_month):
 # Initialize database
 init_cash_flow_db()
 
-st.set_page_config(page_title="Intelligent Data System", layout="wide")
+st.set_page_config(page_title="Vortex — Intelligent Data System", layout="wide", page_icon="⚡")
 
+# Global premium styling
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
-# Show Vortex logo and custom title (use st.image for clarity)
-st.markdown(
-    "<h1 style='color: #38bdf8; font-family: Segoe UI, Arial, sans-serif; margin-top: 18px; text-shadow: 0px 2px 4px rgba(56, 189, 248, 0.3);'>Vortex Data System</h1>",
-    unsafe_allow_html=True
-)
+/* Vortex Global Theme */
+.stApp {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
 
-# No API keys needed - everything runs locally!
+/* Sidebar styling */
+[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #111127 0%, #0a0a1a 100%) !important;
+}
+
+[data-testid="stSidebar"] .block-container {
+    padding-top: 2rem;
+}
+
+/* Header gradient text */
+.vortex-title {
+    font-family: 'Inter', sans-serif;
+    font-weight: 800;
+    font-size: 2.2rem;
+    background: linear-gradient(135deg, #a78bfa, #22d3ee);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    letter-spacing: -0.5px;
+    margin-top: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.vortex-subtitle {
+    color: #64748b;
+    font-size: 0.9rem;
+    font-weight: 400;
+    margin-bottom: 1.5rem;
+}
+
+/* Metric cards */
+[data-testid="stMetricValue"] {
+    font-weight: 700;
+    color: #f1f5f9;
+}
+
+[data-testid="stMetricLabel"] {
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-size: 0.75rem;
+    color: #94a3b8;
+}
+
+/* Button styling */
+.stButton > button {
+    border-radius: 8px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    transition: all 0.3s ease;
+}
+
+.stButton > button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 15px rgba(124, 58, 237, 0.3);
+}
+
+/* Tab styling */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 4px;
+    background: rgba(17, 17, 39, 0.5);
+    padding: 4px;
+    border-radius: 12px;
+}
+
+.stTabs [data-baseweb="tab"] {
+    height: 44px;
+    padding: 0 20px;
+    border-radius: 8px;
+    color: #94a3b8;
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+
+.stTabs [aria-selected="true"] {
+    background: linear-gradient(135deg, #7c3aed, #5b21b6) !important;
+    color: #fff !important;
+}
+
+/* Expander styling */
+.streamlit-expanderHeader {
+    font-weight: 600;
+    color: #a78bfa;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# Show Vortex logo and custom title
+st.markdown('<h1 class="vortex-title">⚡ Vortex Data System</h1>', unsafe_allow_html=True)
+st.markdown('<p class="vortex-subtitle">AI-Powered Data Cleaning, Analysis & Dashboard </p>', unsafe_allow_html=True)
+
+# Sidebar branding
+st.sidebar.markdown("""
+<div style='text-align:center; padding: 1rem 0 0.5rem;'>
+    <div style='font-size: 1.3rem; font-weight: 800; background: linear-gradient(135deg, #a78bfa, #22d3ee); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;'>⚡ Vortex</div>
+</div>
+""", unsafe_allow_html=True)
 st.sidebar.header("System Status")
-st.sidebar.success("Local Data Analysis Engine Active")
-st.sidebar.info("No API keys required")
+st.sidebar.success("✅ Local Data Analysis Engine Active")
+st.sidebar.info("🔒 No API keys required")
 
 # Initialize local Data RAG Engine
 data_rag_engine = DataRAGEngine()
@@ -203,7 +302,7 @@ if uploaded_files and len(uploaded_files) > 0:
     
     # TAB 3: Data Cleaning
     with tab3:
-        st.subheader("Data Cleaning (Methods-based - No API Key Needed)")
+        st.subheader("Data Cleaning (Methods-based )")
         if st.button("Run Auto-Cleaning", key="clean_btn"):
             cleaner = CleaningAgent()
             with st.spinner("Cleaning data..."):
@@ -228,9 +327,7 @@ if uploaded_files and len(uploaded_files) > 0:
             data_rag_engine.load_data(df)
             st.dataframe(df.head())
     
-    # ============================================================
     # TAB 4: EDA & KPI Extraction
-    # ============================================================
     with tab4:
         st.subheader("EDA & KPI Extraction")
         eda = EDAAgent(df)
@@ -257,49 +354,27 @@ if uploaded_files and len(uploaded_files) > 0:
                     with cols[i % len(cols)]:
                         st.metric(k, v)
     
-    # ============================================================
-    # TAB 5: Analytics Dashboard - ALL IN ONE SQUARE/RECTANGLE
-    # ============================================================
+    # TAB 5: Analytics Dashboard 
     with tab5:
-        # Eye-Friendly Dark Theme Styling with soft colors
+        # Premium Vortex Dashboard Styling
         st.markdown("""
         <style>
-        .block-container {
-            padding-top: 2rem;
-        }
         .dashboard-rectangle {
-            background: linear-gradient(145deg, #1e293b 0%, #0f172a 100%);
-            padding: 25px;
+            background: linear-gradient(145deg, rgba(20, 20, 50, 0.7) 0%, rgba(10, 10, 26, 0.9) 100%);
+            padding: 28px;
             border-radius: 20px;
-            border: 2px solid #38bdf8;
-            box-shadow: 0px 8px 32px rgba(56, 189, 248, 0.15), inset 0px 1px 0px rgba(255,255,255,0.05);
-            margin-bottom: 20px;
+            border: 1px solid rgba(124, 58, 237, 0.15);
+            box-shadow: 0px 8px 40px rgba(124, 58, 237, 0.1), inset 0px 1px 0px rgba(255,255,255,0.03);
+            margin-bottom: 24px;
         }
         .power-card {
-            background: linear-gradient(145deg, #1e293b 0%, #0f172a 100%);
-            padding: 20px;
-            border-radius: 15px;
-            border: 1px solid #38bdf8;
-            box-shadow: 0px 4px 20px rgba(56, 189, 248, 0.1);
+            background: linear-gradient(145deg, rgba(20, 20, 50, 0.7) 0%, rgba(10, 10, 26, 0.9) 100%);
+            padding: 22px;
+            border-radius: 16px;
+            border: 1px solid rgba(6, 182, 212, 0.15);
+            box-shadow: 0px 4px 24px rgba(6, 182, 212, 0.08);
             margin-bottom: 20px;
         }
-        /* Smooth tab transitions */
-        .stTabs [data-baseweb="tab-list"] {
-            gap: 8px;
-        }
-        .stTabs [data-baseweb="tab"] {
-            height: 50px;
-            padding: 0 24px;
-            background-color: #1e293b;
-            border-radius: 10px 10px 0px 0px;
-            color: #94a3b8;
-            font-weight: 600;
-        }
-        .stTabs [aria-selected="true"] {
-            background-color: #38bdf8;
-            color: #0f172a;
-        }
-        /* Smooth scrolling */
         .stApp {
             scroll-behavior: smooth;
         }
@@ -308,7 +383,7 @@ if uploaded_files and len(uploaded_files) > 0:
         
         st.markdown('<div class="dashboard-rectangle">', unsafe_allow_html=True)
         st.markdown("""
-        <h3 style='color:#38bdf8; text-align:center; font-family: Helvetica, Arial, sans-serif; font-size: 28px; font-weight: 600; letter-spacing: 0.5px;'>
+        <h3 style='text-align:center; font-family: Inter, Helvetica, Arial, sans-serif; font-size: 28px; font-weight: 700; letter-spacing: -0.3px; background: linear-gradient(135deg, #a78bfa, #22d3ee); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;'>
             📊 Complete Analytics Dashboard
         </h3>
         """, unsafe_allow_html=True)
@@ -346,13 +421,17 @@ if uploaded_files and len(uploaded_files) > 0:
                     x=selected_column,
                     nbins=30,
                     template="plotly_dark",
-                    title=f"Distribution of {selected_column}"
+                    title=f"Distribution of {selected_column}",
+                    color_discrete_sequence=['#7c3aed']
                 )
                 fig_dist.update_layout(
-                    title_font_color="#38bdf8",
-                    paper_bgcolor="#0e1117",
-                    plot_bgcolor="#0e1117",
-                    height=300
+                    title_font_color="#a78bfa",
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    plot_bgcolor="rgba(0,0,0,0)",
+                    height=300,
+                    font=dict(color='#94a3b8'),
+                    xaxis=dict(gridcolor='rgba(255,255,255,0.05)'),
+                    yaxis=dict(gridcolor='rgba(255,255,255,0.05)')
                 )
                 st.plotly_chart(fig_dist, use_container_width=True)
 
@@ -363,13 +442,17 @@ if uploaded_files and len(uploaded_files) > 0:
                     df,
                     y=selected_column,
                     template="plotly_dark",
-                    title=f"Box Plot of {selected_column}"
+                    title=f"Box Plot of {selected_column}",
+                    color_discrete_sequence=['#06b6d4']
                 )
                 fig_box.update_layout(
-                    title_font_color="#38bdf8",
-                    paper_bgcolor="#0e1117",
-                    plot_bgcolor="#0e1117",
-                    height=300
+                    title_font_color="#22d3ee",
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    plot_bgcolor="rgba(0,0,0,0)",
+                    height=300,
+                    font=dict(color='#94a3b8'),
+                    xaxis=dict(gridcolor='rgba(255,255,255,0.05)'),
+                    yaxis=dict(gridcolor='rgba(255,255,255,0.05)')
                 )
                 st.plotly_chart(fig_box, use_container_width=True)
             
@@ -388,10 +471,13 @@ if uploaded_files and len(uploaded_files) > 0:
                             title=f"{selected_column} vs {scatter_col}"
                         )
                         fig_scatter.update_layout(
-                            title_font_color="#ff2d2d",
-                            paper_bgcolor="#0e1117",
-                            plot_bgcolor="#0e1117",
-                            height=300
+                            title_font_color="#34d399",
+                            paper_bgcolor="rgba(0,0,0,0)",
+                            plot_bgcolor="rgba(0,0,0,0)",
+                            height=300,
+                            font=dict(color='#94a3b8'),
+                            xaxis=dict(gridcolor='rgba(255,255,255,0.05)'),
+                            yaxis=dict(gridcolor='rgba(255,255,255,0.05)')
                         )
                         st.plotly_chart(fig_scatter, use_container_width=True)
             
@@ -403,20 +489,21 @@ if uploaded_files and len(uploaded_files) > 0:
 
                     fig_heatmap = go.Figure(
                         data=go.Heatmap(
+                            colorscale=[[0, '#0a0a1a'], [0.5, '#7c3aed'], [1, '#22d3ee']],
                             z=corr.values,
                             x=corr.columns,
                             y=corr.columns,
-                            colorscale="Reds"
                         )
                     )
 
                     fig_heatmap.update_layout(
                         template="plotly_dark",
                         title="Correlation Matrix",
-                        title_font_color="#ff2d2d",
-                        paper_bgcolor="#0e1117",
-                        plot_bgcolor="#0e1117",
-                        height=300
+                        title_font_color="#a78bfa",
+                        paper_bgcolor="rgba(0,0,0,0)",
+                        plot_bgcolor="rgba(0,0,0,0)",
+                        height=300,
+                        font=dict(color='#94a3b8')
                     )
 
                     st.plotly_chart(fig_heatmap, use_container_width=True)
@@ -433,11 +520,9 @@ if uploaded_files and len(uploaded_files) > 0:
         
         st.markdown('</div>', unsafe_allow_html=True)
     
-    # ============================================================
     # TAB 6: Data Insights (Local Analysis)
-    # ============================================================
     with tab6:
-        st.subheader("Data Insights (No API Key Needed)")
+        st.subheader("Data Insights")
         if st.button("Generate Insights", key="insight_btn"):
             with st.spinner("Analyzing data..."):
                 data_rag_engine.load_data(df)
@@ -455,12 +540,9 @@ if uploaded_files and len(uploaded_files) > 0:
                 st.write(f"**Statistical Summary:**")
                 st.text(desc)
     
-    # ============================================================
     # TAB 7: Conversational Data RAG (Local)
-    # ============================================================
     with tab7:
-        st.subheader("Ask About Your Data (No API Key Needed)")
-        st.info("This uses local data analysis - no API keys required!")
+        st.subheader("Ask About Your Data")
         
         # Ensure RAG has data
         if data_rag_engine.df is None:
@@ -478,9 +560,7 @@ if uploaded_files and len(uploaded_files) > 0:
                     for source in result['sources']:
                         st.write(f"- {source.get('title', 'Unknown')}")
     
-    # ============================================================
     # TAB 8: Cash Flow Prediction
-    # ============================================================
     with tab8:
         st.subheader("💰 Cash Flow Prediction")
         

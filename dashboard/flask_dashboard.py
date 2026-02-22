@@ -116,7 +116,7 @@ def profile_data():
 
 @dashboard_bp.route('/clean-data', methods=['POST'])
 def clean_data():
-    """Clean data using methods-based approach (no API key needed)"""
+    """Clean data using methods-based approach"""
     if 'user' not in session:
         return jsonify({'error': 'Authentication required'}), 401
     
@@ -147,7 +147,7 @@ def clean_data():
         profiler = DataProfilingAgent(df)
         profile = profiler.column_profile()
         
-        # Clean data (no API key needed)
+        # Clean data 
         cleaner = CleaningAgent()
         cleaned_df = cleaner.clean_data(df, profile, methods=cleaning_methods)
         cleaning_report = cleaner.get_cleaning_report()
@@ -196,17 +196,11 @@ def generate_eda():
         
         ingestion = IngestionAgent()
         df = ingestion.load_file(file_path)
-        print(f"📊 Data loaded for EDA: {df.shape}")
         
         eda = EDAAgent(df)
-        print("🔍 Generating numeric summary...")
         numeric_summary = eda.numeric_summary()
-        print("🔍 Generating categorical summary...")
         categorical_summary = eda.categorical_summary()
-        print("🔍 Generating KPIs...")
         kpis = eda.generate_kpis()
-        
-        print(f"✅ EDA generated successfully")
         
         return jsonify({
             'success': True,

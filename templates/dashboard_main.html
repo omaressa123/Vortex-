@@ -1,193 +1,835 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Intelligent Data Dashboard - Vortex</title>
+    <title>Vortex — Intelligent Data Dashboard</title>
+    <meta name="description" content="AI-Powered Data Cleaning, Analysis & Dashboard System by Vortex">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
+        /* ============================================
+           VORTEX PREMIUM DESIGN SYSTEM
+           ============================================ */
         :root {
-            --primary-color: #f16363;
-            --secondary-color: #0078D4;
-            --success-color: #28a745;
-            --warning-color: #ffc107;
-            --danger-color: #dc3545;
-            --dark-bg: #1a1a2e;
-            --card-bg: #16213e;
-            --text-light: #e9ecef;
-            --border-color: #2d3748;
+            --primary: #7c3aed;
+            --primary-light: #a78bfa;
+            --primary-dark: #5b21b6;
+            --accent: #06b6d4;
+            --accent-light: #22d3ee;
+            --accent-dark: #0891b2;
+            --emerald: #10b981;
+            --emerald-light: #34d399;
+            --rose: #f43f5e;
+            --amber: #f59e0b;
+            --sky: #0ea5e9;
+            --bg-deep: #0a0a1a;
+            --bg-surface: #111127;
+            --bg-card: rgba(20, 20, 50, 0.7);
+            --bg-glass: rgba(255, 255, 255, 0.04);
+            --border-subtle: rgba(124, 58, 237, 0.15);
+            --border-glow: rgba(6, 182, 212, 0.3);
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --shadow-glow: 0 0 40px rgba(124, 58, 237, 0.15);
+            --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.4);
+            --radius-lg: 16px;
+            --radius-md: 12px;
+            --radius-sm: 8px;
+            --transition-fast: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            --transition-smooth: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         /* Theme Variations */
         [data-theme="ocean"] {
-            --primary-color: #006994;
-            --secondary-color: #00a8cc;
-            --success-color: #00b894;
-            --dark-bg: #0b1929;
-            --card-bg: #173a46;
+            --primary: #0369a1;
+            --primary-light: #38bdf8;
+            --primary-dark: #075985;
+            --accent: #06b6d4;
+            --bg-deep: #020617;
+            --bg-surface: #0c1524;
+            --border-subtle: rgba(3, 105, 161, 0.2);
         }
 
         [data-theme="forest"] {
-            --primary-color: #2d6a4f;
-            --secondary-color: #52b788;
-            --success-color: #40916c;
-            --dark-bg: #081c15;
-            --card-bg: #1b4332;
+            --primary: #166534;
+            --primary-light: #4ade80;
+            --primary-dark: #14532d;
+            --accent: #a3e635;
+            --bg-deep: #022c22;
+            --bg-surface: #052e16;
+            --border-subtle: rgba(22, 101, 52, 0.2);
         }
 
         [data-theme="sunset"] {
-            --primary-color: #ff6b6b;
-            --secondary-color: #feca57;
-            --success-color: #ff9ff3;
-            --dark-bg: #2c2c54;
-            --card-bg: #40407a;
+            --primary: #c2410c;
+            --primary-light: #fb923c;
+            --primary-dark: #9a3412;
+            --accent: #eab308;
+            --bg-deep: #1c1917;
+            --bg-surface: #292524;
+            --border-subtle: rgba(194, 65, 12, 0.2);
         }
 
         [data-theme="royal"] {
-            --primary-color: #6c5ce7;
-            --secondary-color: #a29bfe;
-            --success-color: #55a3ff;
-            --dark-bg: #130f40;
-            --card-bg: #24243e;
+            --primary: #6d28d9;
+            --primary-light: #c4b5fd;
+            --primary-dark: #4c1d95;
+            --accent: #ec4899;
+            --bg-deep: #0f0720;
+            --bg-surface: #1a1038;
+            --border-subtle: rgba(109, 40, 217, 0.2);
+        }
+
+        /* ============================================
+           BASE STYLES
+           ============================================ */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
 
         body {
-            background: linear-gradient(135deg, var(--dark-bg), var(--card-bg));
-            color: var(--text-light);
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: var(--bg-deep);
+            color: var(--text-primary);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             min-height: 100vh;
+            overflow-x: hidden;
         }
 
-        .navbar {
-            background: var(--card-bg);
-            border-bottom: 1px solid var(--border-color);
-            padding: 1rem 0;
+        /* Animated background gradient */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background:
+                radial-gradient(ellipse at 20% 50%, rgba(124, 58, 237, 0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 20%, rgba(6, 182, 212, 0.06) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 80%, rgba(16, 185, 129, 0.04) 0%, transparent 50%);
+            z-index: 0;
+            pointer-events: none;
+            animation: bgShift 20s ease-in-out infinite alternate;
         }
 
-        .navbar-brand {
-            color: var(--primary-color) !important;
-            font-weight: bold;
-            font-size: 1.5rem;
+        @keyframes bgShift {
+            0% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.7;
+            }
+
+            100% {
+                opacity: 1;
+            }
         }
 
-        .card {
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
+        /* ============================================
+           SCROLLBAR
+           ============================================ */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-deep);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--primary);
+            border-radius: 3px;
+        }
+
+        /* ============================================
+           NAVBAR
+           ============================================ */
+        .navbar-vortex {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(10, 10, 26, 0.85);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border-bottom: 1px solid var(--border-subtle);
+            padding: 0.75rem 1.5rem;
+        }
+
+        .navbar-vortex .brand-logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+        }
+
+        .navbar-vortex .brand-logo .brand-icon {
+            width: 36px;
+            height: 36px;
             border-radius: 10px;
-            transition: all 0.3s ease;
-        }
-
-        .card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
-        }
-
-        .btn-primary {
-            background: var(--primary-color);
-            border-color: var(--primary-color);
-        }
-
-        .btn-primary:hover {
-            background: var(--secondary-color);
-            border-color: var(--secondary-color);
-        }
-
-        .metric-card {
-            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
             color: white;
-            border-radius: 15px;
-            padding: 1.5rem;
-            text-align: center;
-            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(124, 58, 237, 0.3);
         }
 
-        .metric-card:hover {
-            transform: scale(1.05);
+        .navbar-vortex .brand-name {
+            font-size: 1.3rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--primary-light), var(--accent-light));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: -0.5px;
         }
 
-        .section-title {
-            color: var(--primary-color);
-            border-bottom: 2px solid var(--primary-color);
-            padding-bottom: 0.5rem;
-            margin-bottom: 1.5rem;
+        .navbar-vortex .nav-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
         }
 
-        .loading-spinner {
-            display: none;
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            z-index: 9999;
+        .navbar-vortex .user-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 14px;
+            background: var(--bg-glass);
+            border: 1px solid var(--border-subtle);
+            border-radius: 30px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
         }
 
-        .chart-container {
-            background: var(--card-bg);
-            border-radius: 10px;
-            padding: 1rem;
-            margin: 1rem 0;
+        .btn-logout {
+            padding: 6px 16px;
+            background: rgba(244, 63, 94, 0.1);
+            border: 1px solid rgba(244, 63, 94, 0.2);
+            color: var(--rose);
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: var(--transition-fast);
         }
 
+        .btn-logout:hover {
+            background: rgba(244, 63, 94, 0.2);
+            border-color: rgba(244, 63, 94, 0.4);
+        }
+
+        /* ============================================
+           THEME SELECTOR
+           ============================================ */
         .theme-selector {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 1000;
+            position: relative;
         }
 
+        .theme-btn {
+            padding: 6px 14px;
+            background: var(--bg-glass);
+            border: 1px solid var(--border-subtle);
+            color: var(--text-secondary);
+            border-radius: 8px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: var(--transition-fast);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .theme-btn:hover {
+            background: rgba(124, 58, 237, 0.15);
+            border-color: var(--primary);
+            color: var(--primary-light);
+        }
+
+        .theme-dropdown {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            margin-top: 8px;
+            background: var(--bg-surface);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md);
+            padding: 6px;
+            min-width: 180px;
+            box-shadow: var(--shadow-card);
+            display: none;
+            z-index: 200;
+        }
+
+        .theme-dropdown.show {
+            display: block;
+        }
+
+        .theme-option {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            transition: var(--transition-fast);
+            border: none;
+            background: none;
+            width: 100%;
+            text-align: left;
+        }
+
+        .theme-option:hover {
+            background: rgba(124, 58, 237, 0.1);
+            color: var(--text-primary);
+        }
+
+        .theme-option .theme-swatch {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* ============================================
+           MAIN CONTAINER
+           ============================================ */
+        .main-container {
+            position: relative;
+            z-index: 1;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+        }
+
+        /* ============================================
+           GLASS CARDS
+           ============================================ */
+        .glass-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            transition: var(--transition-smooth);
+        }
+
+        .glass-card:hover {
+            border-color: var(--border-glow);
+            box-shadow: var(--shadow-glow);
+        }
+
+        .card-header-vortex {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .card-header-vortex h5 {
+            font-size: 1rem;
+            font-weight: 600;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .card-header-vortex h5 i {
+            color: var(--accent);
+        }
+
+        .card-body-vortex {
+            padding: 1.5rem;
+        }
+
+        /* ============================================
+           STATUS ENGINE BANNER
+           ============================================ */
+        .engine-banner {
+            background: linear-gradient(135deg, rgba(124, 58, 237, 0.08), rgba(6, 182, 212, 0.06));
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-lg);
+            padding: 1rem 1.5rem;
+            margin-bottom: 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .engine-banner .engine-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .engine-banner .engine-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            color: white;
+        }
+
+        .engine-banner .engine-text h6 {
+            margin: 0;
+            font-size: 0.95rem;
+            font-weight: 600;
+        }
+
+        .engine-banner .engine-text small {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+        }
+
+        .engine-badge {
+            padding: 5px 14px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .engine-badge.active {
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--emerald-light);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .engine-badge.inactive {
+            background: rgba(245, 158, 11, 0.15);
+            color: var(--amber);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+
+        /* ============================================
+           STATUS INDICATORS
+           ============================================ */
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .status-dot.active {
+            background: var(--emerald);
+            box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+            animation: pulse-green 2s infinite;
+        }
+
+        .status-dot.inactive {
+            background: var(--amber);
+        }
+
+        .status-dot.error {
+            background: var(--rose);
+        }
+
+        .status-dot.loading {
+            background: var(--sky);
+            animation: pulse-blue 1.5s infinite;
+        }
+
+        @keyframes pulse-green {
+
+            0%,
+            100% {
+                box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+            }
+
+            50% {
+                box-shadow: 0 0 16px rgba(16, 185, 129, 0.8);
+            }
+        }
+
+        @keyframes pulse-blue {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.4;
+            }
+        }
+
+        /* ============================================
+           SECTION TITLES
+           ============================================ */
+        .section-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--text-primary);
+        }
+
+        .section-title i {
+            color: var(--accent);
+            font-size: 1.1rem;
+        }
+
+        .section-title::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: linear-gradient(90deg, var(--border-subtle), transparent);
+            margin-left: 12px;
+        }
+
+        /* ============================================
+           TEMPLATE GRID
+           ============================================ */
         .template-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
             gap: 1rem;
-            margin: 2rem 0;
+            margin-bottom: 2rem;
         }
 
         .template-card {
-            background: var(--card-bg);
-            border: 2px solid var(--border-color);
-            border-radius: 10px;
-            padding: 1rem;
+            position: relative;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-lg);
+            padding: 1.5rem 1rem;
             text-align: center;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: var(--transition-smooth);
+            overflow: hidden;
+        }
+
+        .template-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            opacity: 0;
+            transition: var(--transition-smooth);
         }
 
         .template-card:hover {
-            border-color: var(--primary-color);
-            transform: translateY(-3px);
+            border-color: var(--primary);
+            transform: translateY(-4px);
+            box-shadow: 0 12px 30px rgba(124, 58, 237, 0.15);
+        }
+
+        .template-card:hover::before {
+            opacity: 1;
         }
 
         .template-card.selected {
-            border-color: var(--success-color);
-            background: linear-gradient(135deg, var(--success-color), transparent);
+            border-color: var(--emerald);
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.15), inset 0 0 30px rgba(16, 185, 129, 0.03);
         }
 
-        .status-indicator {
-            width: 10px;
-            height: 10px;
+        .template-card.selected::before {
+            opacity: 1;
+            background: linear-gradient(90deg, var(--emerald), var(--accent));
+        }
+
+        .template-card .template-icon {
+            width: 56px;
+            height: 56px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            margin: 0 auto 12px;
+            transition: var(--transition-smooth);
+        }
+
+        .template-card:nth-child(1) .template-icon {
+            background: linear-gradient(135deg, rgba(124, 58, 237, 0.2), rgba(167, 139, 250, 0.1));
+            color: var(--primary-light);
+        }
+
+        .template-card:nth-child(2) .template-icon {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(52, 211, 153, 0.1));
+            color: var(--emerald-light);
+        }
+
+        .template-card:nth-child(3) .template-icon {
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(251, 191, 36, 0.1));
+            color: var(--amber);
+        }
+
+        .template-card:nth-child(4) .template-icon {
+            background: linear-gradient(135deg, rgba(14, 165, 233, 0.2), rgba(56, 189, 248, 0.1));
+            color: var(--sky);
+        }
+
+        .template-card:nth-child(5) .template-icon {
+            background: linear-gradient(135deg, rgba(244, 63, 94, 0.2), rgba(251, 113, 133, 0.1));
+            color: var(--rose);
+        }
+
+        .template-card:nth-child(6) .template-icon {
+            background: linear-gradient(135deg, rgba(6, 182, 212, 0.2), rgba(34, 211, 238, 0.1));
+            color: var(--accent-light);
+        }
+
+        .template-card h6 {
+            font-size: 0.95rem;
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: var(--text-primary);
+        }
+
+        .template-card small {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+        }
+
+        .template-card .check-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 24px;
+            height: 24px;
             border-radius: 50%;
-            display: inline-block;
-            margin-left: 0.5rem;
+            background: var(--emerald);
+            color: white;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.4);
         }
 
-        .status-active { background: var(--success-color); }
-        .status-inactive { background: var(--warning-color); }
-        .status-error { background: var(--danger-color); }
+        .template-card.selected .check-badge {
+            display: flex;
+        }
 
-        /* Cleaning Methods Checkboxes */
+        /* ============================================
+           UPLOAD SECTION
+           ============================================ */
+        .upload-zone {
+            border: 2px dashed var(--border-subtle);
+            border-radius: var(--radius-lg);
+            padding: 2rem;
+            text-align: center;
+            transition: var(--transition-smooth);
+            cursor: pointer;
+            position: relative;
+        }
+
+        .upload-zone:hover {
+            border-color: var(--primary);
+            background: rgba(124, 58, 237, 0.04);
+        }
+
+        .upload-zone .upload-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            color: var(--primary-light);
+        }
+
+        .upload-zone p {
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+        }
+
+        .upload-zone .file-input-wrapper {
+            position: relative;
+        }
+
+        .upload-zone input[type="file"] {
+            background: var(--bg-glass);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-sm);
+            padding: 10px;
+            color: var(--text-secondary);
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .upload-zone input[type="file"]::file-selector-button {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            border: none;
+            color: white;
+            padding: 8px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-right: 12px;
+            font-weight: 500;
+            transition: var(--transition-fast);
+        }
+
+        .upload-zone input[type="file"]::file-selector-button:hover {
+            background: linear-gradient(135deg, var(--primary-light), var(--primary));
+        }
+
+        /* ============================================
+           BUTTONS
+           ============================================ */
+        .btn-vortex {
+            padding: 10px 24px;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: var(--transition-fast);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            letter-spacing: 0.3px;
+        }
+
+        .btn-vortex.primary {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            box-shadow: 0 4px 15px rgba(124, 58, 237, 0.3);
+        }
+
+        .btn-vortex.primary:hover {
+            box-shadow: 0 6px 20px rgba(124, 58, 237, 0.45);
+            transform: translateY(-1px);
+        }
+
+        .btn-vortex.success {
+            background: linear-gradient(135deg, var(--emerald), #059669);
+            color: white;
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+        }
+
+        .btn-vortex.accent {
+            background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+            color: white;
+            box-shadow: 0 4px 15px rgba(6, 182, 212, 0.3);
+        }
+
+        .btn-vortex.warning {
+            background: linear-gradient(135deg, var(--amber), #d97706);
+            color: white;
+            box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);
+        }
+
+        .btn-vortex.outline {
+            background: transparent;
+            border: 1px solid var(--border-subtle);
+            color: var(--text-secondary);
+        }
+
+        .btn-vortex.outline:hover {
+            border-color: var(--primary);
+            color: var(--primary-light);
+            background: rgba(124, 58, 237, 0.08);
+        }
+
+        .btn-vortex.full {
+            width: 100%;
+            justify-content: center;
+        }
+
+        /* ============================================
+           METRIC CARDS
+           ============================================ */
+        .metric-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-lg);
+            padding: 1.25rem;
+            text-align: center;
+            transition: var(--transition-smooth);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .metric-card::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 3px;
+        }
+
+        .metric-card:nth-child(1)::after {
+            background: linear-gradient(90deg, var(--primary), var(--primary-light));
+        }
+
+        .metric-card:nth-child(2)::after {
+            background: linear-gradient(90deg, var(--emerald), var(--emerald-light));
+        }
+
+        .metric-card:nth-child(3)::after {
+            background: linear-gradient(90deg, var(--accent), var(--accent-light));
+        }
+
+        .metric-card:nth-child(4)::after {
+            background: linear-gradient(90deg, var(--amber), #fbbf24);
+        }
+
+        .metric-card:hover {
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-glow);
+        }
+
+        .metric-card h4 {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 6px;
+        }
+
+        .metric-card h2 {
+            font-size: 1.75rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--text-primary), var(--primary-light));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* ============================================
+           CLEANING METHOD CARDS
+           ============================================ */
         .cleaning-method-card {
-            background: rgba(255,255,255,0.05);
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 0.75rem;
+            background: var(--bg-glass);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-sm);
+            padding: 0.75rem 1rem;
             margin-bottom: 0.5rem;
-            transition: all 0.2s ease;
+            transition: var(--transition-fast);
         }
 
         .cleaning-method-card:hover {
-            background: rgba(255,255,255,0.1);
+            background: rgba(124, 58, 237, 0.06);
+            border-color: rgba(124, 58, 237, 0.2);
         }
 
         .cleaning-method-card label {
@@ -195,382 +837,853 @@
             width: 100%;
         }
 
-        /* Chat Messages */
+        .cleaning-method-card .form-check-input:checked {
+            background-color: var(--primary);
+            border-color: var(--primary);
+        }
+
+        .cleaning-method-card strong {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        .cleaning-method-card small {
+            color: var(--text-muted);
+        }
+
+        /* ============================================
+           CHAT SECTION
+           ============================================ */
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .quick-questions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 1rem;
+        }
+
+        .quick-btn {
+            padding: 6px 14px;
+            border-radius: 20px;
+            border: 1px solid var(--border-subtle);
+            background: var(--bg-glass);
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: var(--transition-fast);
+        }
+
+        .quick-btn:hover {
+            background: rgba(124, 58, 237, 0.1);
+            border-color: var(--primary);
+            color: var(--primary-light);
+        }
+
         .chat-messages {
-            max-height: 400px;
+            max-height: 350px;
             overflow-y: auto;
-            padding: 1rem;
+            padding: 1rem 0;
+            flex: 1;
         }
 
         .chat-message {
             margin-bottom: 1rem;
-            padding: 0.75rem 1rem;
-            border-radius: 12px;
+            padding: 0.75rem 1.25rem;
+            border-radius: 16px;
             max-width: 85%;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(8px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         .chat-message.user {
-            background: var(--primary-color);
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
             margin-left: auto;
             color: white;
+            border-bottom-right-radius: 4px;
         }
 
         .chat-message.assistant {
-            background: rgba(255,255,255,0.1);
+            background: var(--bg-glass);
+            border: 1px solid var(--border-subtle);
             margin-right: auto;
+            color: var(--text-primary);
+            border-bottom-left-radius: 4px;
         }
 
         .chat-message pre {
             margin: 0;
             white-space: pre-wrap;
-            font-family: 'Segoe UI', sans-serif;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+
+        .chat-input-wrapper {
+            display: flex;
+            gap: 8px;
+            margin-top: 1rem;
+        }
+
+        .chat-input-wrapper textarea {
+            flex: 1;
+            background: var(--bg-glass);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-sm);
+            padding: 10px 14px;
+            color: var(--text-primary);
+            font-family: 'Inter', sans-serif;
+            font-size: 0.9rem;
+            resize: none;
+            transition: var(--transition-fast);
+        }
+
+        .chat-input-wrapper textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+        }
+
+        .chat-input-wrapper textarea::placeholder {
+            color: var(--text-muted);
+        }
+
+        .chat-send-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: var(--radius-sm);
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            border: none;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            transition: var(--transition-fast);
+        }
+
+        .chat-send-btn:hover {
+            box-shadow: 0 4px 15px rgba(124, 58, 237, 0.4);
+            transform: scale(1.05);
+        }
+
+        /* ============================================
+           FORM CONTROLS
+           ============================================ */
+        .form-control,
+        .form-select {
+            background: var(--bg-glass) !important;
+            border: 1px solid var(--border-subtle) !important;
+            color: var(--text-primary) !important;
+            border-radius: var(--radius-sm);
+            padding: 10px 14px;
+            transition: var(--transition-fast);
+        }
+
+        .form-control:focus,
+        .form-select:focus {
+            border-color: var(--primary) !important;
+            box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1) !important;
+        }
+
+        .form-select option {
+            background: var(--bg-surface);
+            color: var(--text-primary);
+        }
+
+        /* ============================================
+           TABLES
+           ============================================ */
+        .table {
+            color: var(--text-primary);
+        }
+
+        .table thead th {
+            background: rgba(124, 58, 237, 0.08);
+            border-bottom: 2px solid var(--border-subtle);
+            font-weight: 600;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--primary-light);
+            padding: 12px;
+        }
+
+        .table tbody td {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+            padding: 10px 12px;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .table-striped tbody tr:nth-of-type(odd) {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .table-hover tbody tr:hover {
+            background: rgba(124, 58, 237, 0.05);
+        }
+
+        /* ============================================
+           PROGRESS BAR
+           ============================================ */
+        .progress {
+            background: var(--bg-glass);
+            border-radius: 10px;
+            overflow: hidden;
+            height: 12px;
+        }
+
+        .progress-bar {
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+
+        /* ============================================
+           ALERTS
+           ============================================ */
+        .alert-vortex {
+            border-radius: var(--radius-md);
+            padding: 1rem 1.5rem;
+            font-size: 0.9rem;
+            border: none;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .alert-vortex.success {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--emerald-light);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+
+        .alert-vortex.danger {
+            background: rgba(244, 63, 94, 0.1);
+            color: var(--rose);
+            border: 1px solid rgba(244, 63, 94, 0.2);
+        }
+
+        .alert-vortex.info {
+            background: rgba(14, 165, 233, 0.1);
+            color: var(--sky);
+            border: 1px solid rgba(14, 165, 233, 0.2);
+        }
+
+        .alert-vortex.warning {
+            background: rgba(245, 158, 11, 0.1);
+            color: var(--amber);
+            border: 1px solid rgba(245, 158, 11, 0.2);
+        }
+
+        /* ============================================
+           LOADING SPINNER
+           ============================================ */
+        .loading-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            background: rgba(10, 10, 26, 0.8);
+            backdrop-filter: blur(4px);
+            align-items: center;
+            justify-content: center;
+        }
+
+        .loading-overlay.show {
+            display: flex;
+        }
+
+        .loading-spinner {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .spinner-ring {
+            width: 48px;
+            height: 48px;
+            border: 3px solid var(--border-subtle);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .loading-text {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        /* ============================================
+           NOTIFICATION TOAST
+           ============================================ */
+        .toast-notification {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            z-index: 10000;
+            padding: 12px 20px;
+            border-radius: var(--radius-md);
+            font-size: 0.9rem;
+            font-weight: 500;
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            animation: slideInRight 0.3s ease, fadeOut 0.3s ease 2.7s forwards;
+            max-width: 400px;
+        }
+
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes fadeOut {
+            to {
+                opacity: 0;
+                transform: translateX(40px);
+            }
+        }
+
+        .toast-notification.success {
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--emerald-light);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .toast-notification.danger {
+            background: rgba(244, 63, 94, 0.15);
+            color: var(--rose);
+            border: 1px solid rgba(244, 63, 94, 0.3);
+        }
+
+        .toast-notification.warning {
+            background: rgba(245, 158, 11, 0.15);
+            color: var(--amber);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+
+        .toast-notification.info {
+            background: rgba(14, 165, 233, 0.15);
+            color: var(--sky);
+            border: 1px solid rgba(14, 165, 233, 0.3);
+        }
+
+        /* ============================================
+           GENERATED DASHBOARD AREA
+           ============================================ */
+        #generatedDashboard {
+            margin-top: 2rem;
+        }
+
+        .dashboard-generated-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.5rem;
+        }
+
+        .dashboard-generated-header h3 {
+            font-size: 1.3rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .dashboard-generated-header h3 i {
+            color: var(--accent);
+        }
+
+        .chart-container {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-lg);
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .chart-container h6 {
+            color: var(--text-primary);
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+
+        .chart-container canvas {
+            max-height: 300px;
+        }
+
+        /* ============================================
+           VISUALIZATION RESULTS
+           ============================================ */
+        .viz-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 1rem;
+        }
+
+        .viz-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-lg);
+            padding: 1rem;
+            transition: var(--transition-fast);
+        }
+
+        .viz-card img {
+            width: 100%;
+            height: auto;
+            border-radius: var(--radius-sm);
+        }
+
+        /* ============================================
+           RESPONSIVE
+           ============================================ */
+        @media (max-width: 768px) {
+            .template-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .navbar-vortex {
+                padding: 0.75rem 1rem;
+            }
+
+            .main-container {
+                padding: 1rem;
+            }
+
+            .viz-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .template-grid {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
+
 <body data-theme="default">
-    <!-- Theme Selector -->
-    <div class="theme-selector">
-        <div class="dropdown">
-            <button class="btn btn-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
-                <i class="fas fa-palette"></i> Theme
-            </button>
-            <ul class="dropdown-menu">
-                <li><a class="dropdown-item" href="#" onclick="setTheme('default')">🔥 Default</a></li>
-                <li><a class="dropdown-item" href="#" onclick="setTheme('ocean')">🌊 Ocean</a></li>
-                <li><a class="dropdown-item" href="#" onclick="setTheme('forest')">🌲 Forest</a></li>
-                <li><a class="dropdown-item" href="#" onclick="setTheme('sunset')">🌅 Sunset</a></li>
-                <li><a class="dropdown-item" href="#" onclick="setTheme('royal')">👑 Royal</a></li>
-            </ul>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner">
+            <div class="spinner-ring"></div>
+            <div class="loading-text">Processing your data...</div>
         </div>
     </div>
 
-    <!-- Navigation -->
-    <nav class="navbar navbar-expand-lg navbar-dark">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="#">
-                <i class="fas fa-chart-line"></i> Vortex Dashboard
+    <!-- Navbar -->
+    <nav class="navbar-vortex">
+        <div
+            style="display:flex; align-items:center; justify-content:space-between; width:100%; max-width:1400px; margin:0 auto;">
+            <a class="brand-logo" href="#">
+                <div class="brand-icon"><i class="fas fa-bolt"></i></div>
+                <span class="brand-name">Vortex Dashboard</span>
             </a>
-            <div class="navbar-nav ms-auto">
-                <span class="navbar-text">
-                    <i class="fas fa-user"></i> <span id="userEmail">user@example.com</span>
-                    <span class="status-indicator status-inactive" id="ragStatus"></span>
-                </span>
-                <button class="btn btn-outline-light btn-sm ms-3" onclick="logout()">
+
+            <div class="nav-actions">
+                <!-- Theme Selector -->
+                <div class="theme-selector">
+                    <button class="theme-btn" onclick="toggleThemeDropdown()" id="themeToggleBtn">
+                        <i class="fas fa-palette"></i> Theme
+                    </button>
+                    <div class="theme-dropdown" id="themeDropdown">
+                        <button class="theme-option" onclick="setTheme('default')">
+                            <span class="theme-swatch"
+                                style="background: linear-gradient(135deg, #7c3aed, #06b6d4);"></span>
+                            Nebula (Default)
+                        </button>
+                        <button class="theme-option" onclick="setTheme('ocean')">
+                            <span class="theme-swatch"
+                                style="background: linear-gradient(135deg, #0369a1, #06b6d4);"></span>
+                            Deep Ocean
+                        </button>
+                        <button class="theme-option" onclick="setTheme('forest')">
+                            <span class="theme-swatch"
+                                style="background: linear-gradient(135deg, #166534, #a3e635);"></span>
+                            Emerald Forest
+                        </button>
+                        <button class="theme-option" onclick="setTheme('sunset')">
+                            <span class="theme-swatch"
+                                style="background: linear-gradient(135deg, #c2410c, #eab308);"></span>
+                            Sunset Ember
+                        </button>
+                        <button class="theme-option" onclick="setTheme('royal')">
+                            <span class="theme-swatch"
+                                style="background: linear-gradient(135deg, #6d28d9, #ec4899);"></span>
+                            Royal Violet
+                        </button>
+                    </div>
+                </div>
+
+                <div class="user-badge">
+                    <i class="fas fa-user-astronaut"></i>
+                    <span id="userEmail">user@vortex.io</span>
+                    <span class="status-dot inactive" id="ragStatus"></span>
+                </div>
+
+                <button class="btn-logout" onclick="logout()">
                     <i class="fas fa-sign-out-alt"></i> Logout
                 </button>
             </div>
         </div>
     </nav>
 
-    <!-- Loading Spinner -->
-    <div class="loading-spinner" id="loadingSpinner">
-        <div class="spinner-border text-primary" role="status">
-            <span class="visually-hidden">Loading...</span>
-        </div>
-    </div>
+    <!-- Main Content -->
+    <div class="main-container">
 
-    <div class="container-fluid mt-4">
-        <!-- RAG Status Info -->
-        <div class="row mb-4">
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-header">
-                        <h5 class="mb-0">
-                            <i class="fas fa-database"></i> Data Analysis Engine
-                            <span class="status-indicator status-inactive" id="engineStatus"></span>
-                        </h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <small class="text-muted">
-                                <i class="fas fa-info-circle"></i> 
-                                <span id="engineInfo">Upload a data file to start analyzing. No API keys required - everything runs locally!</span>
-                            </small>
-                            <span class="badge bg-success" id="ragDocsBadge" style="display: none;">
-                                <i class="fas fa-check"></i> <span id="ragDocsCount">0</span> knowledge documents
-                            </span>
-                        </div>
-                    </div>
+        <!-- Engine Status Banner -->
+        <div class="engine-banner">
+            <div class="engine-info">
+                <div class="engine-icon"><i class="fas fa-atom"></i></div>
+                <div class="engine-text">
+                    <h6><i class="fas fa-database"></i> Data Analysis Engine <span class="status-dot inactive"
+                            id="engineStatus"></span></h6>
+                    <small id="engineInfo">Upload a data file to start analyzing. No API keys required — everything runs
+                        locally!</small>
                 </div>
             </div>
+            <span class="engine-badge inactive" id="ragDocsBadge">
+                <i class="fas fa-cube"></i> <span id="ragDocsCount">0</span> knowledge docs
+            </span>
         </div>
 
         <!-- Template Selection -->
-        <div class="row mb-4">
-            <div class="col-12">
-                <h3 class="section-title">
-                    <i class="fas fa-th-large"></i> Choose Dashboard Template
-                </h3>
-                <div class="template-grid">
-                    <div class="template-card" onclick="selectTemplate('executive', 'Executive Dashboard')">
-                        <i class="fas fa-chart-pie fa-3x mb-3" style="color: var(--primary-color);"></i>
-                        <h6>Executive Dashboard</h6>
-                        <small>KPIs, charts, metrics</small>
-                    </div>
-                    <div class="template-card" onclick="selectTemplate('sales', 'Sales Analytics')">
-                        <i class="fas fa-chart-line fa-3x mb-3" style="color: var(--success-color);"></i>
-                        <h6>Sales Analytics</h6>
-                        <small>Revenue, trends, forecasts</small>
-                    </div>
-                    <div class="template-card" onclick="selectTemplate('marketing', 'Marketing Performance')">
-                        <i class="fas fa-bullhorn fa-3x mb-3" style="color: var(--warning-color);"></i>
-                        <h6>Marketing Performance</h6>
-                        <small>Campaigns, conversions, ROI</small>
-                    </div>
-                    <div class="template-card" onclick="selectTemplate('hr', 'HR Analytics')">
-                        <i class="fas fa-users fa-3x mb-3" style="color: var(--secondary-color);"></i>
-                        <h6>HR Analytics</h6>
-                        <small>Employees, performance, retention</small>
-                    </div>
-                    <div class="template-card" onclick="selectTemplate('operations', 'Operations Dashboard')">
-                        <i class="fas fa-cogs fa-3x mb-3" style="color: var(--danger-color);"></i>
-                        <h6>Operations Dashboard</h6>
-                        <small>Efficiency, quality, uptime</small>
-                    </div>
-                    <div class="template-card" onclick="selectTemplate('financial', 'Financial Overview')">
-                        <i class="fas fa-dollar-sign fa-3x mb-3" style="color: var(--success-color);"></i>
-                        <h6>Financial Overview</h6>
-                        <small>Revenue, expenses, profit</small>
-                    </div>
-                </div>
+        <div class="section-title"><i class="fas fa-th-large"></i> Choose Dashboard Template</div>
+        <div class="template-grid" id="templateGrid">
+            <div class="template-card" onclick="selectTemplate('executive', 'Executive Dashboard', this)">
+                <div class="check-badge"><i class="fas fa-check"></i></div>
+                <div class="template-icon"><i class="fas fa-chart-pie"></i></div>
+                <h6>Executive Dashboard</h6>
+                <small>KPIs, charts, metrics overview</small>
+            </div>
+            <div class="template-card" onclick="selectTemplate('sales', 'Sales Analytics', this)">
+                <div class="check-badge"><i class="fas fa-check"></i></div>
+                <div class="template-icon"><i class="fas fa-chart-line"></i></div>
+                <h6>Sales Analytics</h6>
+                <small>Revenue, trends, forecasts</small>
+            </div>
+            <div class="template-card" onclick="selectTemplate('marketing', 'Marketing Performance', this)">
+                <div class="check-badge"><i class="fas fa-check"></i></div>
+                <div class="template-icon"><i class="fas fa-bullhorn"></i></div>
+                <h6>Marketing Performance</h6>
+                <small>Campaigns, conversions, ROI</small>
+            </div>
+            <div class="template-card" onclick="selectTemplate('hr', 'HR Analytics', this)">
+                <div class="check-badge"><i class="fas fa-check"></i></div>
+                <div class="template-icon"><i class="fas fa-users"></i></div>
+                <h6>HR Analytics</h6>
+                <small>Employees, performance, retention</small>
+            </div>
+            <div class="template-card" onclick="selectTemplate('operations', 'Operations Dashboard', this)">
+                <div class="check-badge"><i class="fas fa-check"></i></div>
+                <div class="template-icon"><i class="fas fa-cogs"></i></div>
+                <h6>Operations Dashboard</h6>
+                <small>Efficiency, quality, uptime</small>
+            </div>
+            <div class="template-card" onclick="selectTemplate('financial', 'Financial Overview', this)">
+                <div class="check-badge"><i class="fas fa-check"></i></div>
+                <div class="template-icon"><i class="fas fa-dollar-sign"></i></div>
+                <h6>Financial Overview</h6>
+                <small>Revenue, expenses, profit</small>
             </div>
         </div>
 
         <!-- File Upload -->
-        <div class="row mb-4">
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-header">
-                        <h5 class="mb-0">
-                            <i class="fas fa-upload"></i> Data Upload
-                            <span class="status-indicator status-inactive" id="uploadStatus"></span>
-                        </h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-8">
-                                <input type="file" class="form-control" id="dataFile" 
-                                       accept=".csv,.xlsx,.xls,.json">
-                            </div>
-                            <div class="col-md-4">
-                                <button class="btn btn-success w-100" onclick="uploadData()">
-                                    <i class="fas fa-cloud-upload-alt"></i> Upload & Analyze
-                                </button>
-                            </div>
-                        </div>
-                        <div class="mt-3" id="uploadResult"></div>
+        <div class="glass-card" style="margin-bottom: 2rem;">
+            <div class="card-header-vortex">
+                <h5><i class="fas fa-cloud-upload-alt"></i> Data Upload <span class="status-dot inactive"
+                        id="uploadStatus"></span></h5>
+            </div>
+            <div class="card-body-vortex">
+                <div class="upload-zone" onclick="document.getElementById('dataFile').click()">
+                    <div class="upload-icon"><i class="fas fa-file-upload"></i></div>
+                    <p>Drag & drop your file or click to browse</p>
+                    <div class="file-input-wrapper" onclick="event.stopPropagation()">
+                        <input type="file" id="dataFile" accept=".csv,.xlsx,.xls,.json">
                     </div>
                 </div>
+                <div style="margin-top: 1rem; text-align: center;">
+                    <button class="btn-vortex success" onclick="uploadData()">
+                        <i class="fas fa-rocket"></i> Upload & Analyze
+                    </button>
+                </div>
+                <div id="uploadResult" style="margin-top: 1rem;"></div>
             </div>
         </div>
 
         <!-- Data Preview -->
-        <div class="row mb-4" id="dataPreviewSection" style="display: none;">
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-header">
-                        <h5 class="mb-0">
-                            <i class="fas fa-table"></i> Data Preview
-                        </h5>
-                    </div>
-                    <div class="card-body">
-                        <div id="dataPreview"></div>
-                    </div>
+        <div id="dataPreviewSection" style="display: none; margin-bottom: 2rem;">
+            <div class="glass-card">
+                <div class="card-header-vortex">
+                    <h5><i class="fas fa-table"></i> Data Preview</h5>
+                </div>
+                <div class="card-body-vortex" style="overflow-x: auto;">
+                    <div id="dataPreview"></div>
                 </div>
             </div>
         </div>
+
+        <!-- Generated Dashboard (shows after template + data) -->
+        <div id="generatedDashboard" style="display: none;"></div>
 
         <!-- Analysis Sections -->
-        <div class="row" id="analysisSections" style="display: none;">
-            <!-- Data Profiling -->
-            <div class="col-lg-6 mb-4">
-                <div class="card h-100">
-                    <div class="card-header">
-                        <h5 class="mb-0">
-                            <i class="fas fa-search"></i> Data Profiling
-                        </h5>
-                    </div>
-                    <div class="card-body">
-                        <button class="btn btn-primary w-100 mb-3" onclick="profileData()">
-                            <i class="fas fa-microscope"></i> Profile Data
-                        </button>
-                        <div id="profilingResults"></div>
-                    </div>
-                </div>
-            </div>
+        <div id="analysisSections" style="display: none;">
+            <div class="row g-4">
 
-            <!-- Data Cleaning -->
-            <div class="col-lg-6 mb-4">
-                <div class="card h-100">
-                    <div class="card-header">
-                        <h5 class="mb-0">
-                            <i class="fas fa-broom"></i> Data Cleaning
-                        </h5>
-                    </div>
-                    <div class="card-body">
-                        <!-- Cleaning Method Options -->
-                        <div class="mb-3" id="cleaningMethodsSection">
-                            <h6 class="text-muted mb-2"><i class="fas fa-cogs"></i> Cleaning Methods</h6>
-                            <div class="cleaning-method-card">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="method_handle_missing" checked>
-                                    <label class="form-check-label" for="method_handle_missing">
-                                        <strong>Handle Missing Values</strong>
-                                        <small class="d-block text-muted">Drop high-missing columns, fill rest with median/mode</small>
-                                    </label>
-                                </div>
-                            </div>
-                            <div class="cleaning-method-card">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="method_remove_duplicates" checked>
-                                    <label class="form-check-label" for="method_remove_duplicates">
-                                        <strong>Remove Duplicates</strong>
-                                        <small class="d-block text-muted">Remove exact duplicate rows</small>
-                                    </label>
-                                </div>
-                            </div>
-                            <div class="cleaning-method-card">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="method_knn_impute" checked>
-                                    <label class="form-check-label" for="method_knn_impute">
-                                        <strong>KNN Imputation</strong>
-                                        <small class="d-block text-muted">Use K-Nearest Neighbors to fill remaining missing numeric values</small>
-                                    </label>
-                                </div>
-                            </div>
-                            <div class="cleaning-method-card">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="method_statistical_outliers" checked>
-                                    <label class="form-check-label" for="method_statistical_outliers">
-                                        <strong>Statistical Outlier Removal</strong>
-                                        <small class="d-block text-muted">Z-score + IQR combined method</small>
-                                    </label>
-                                </div>
-                            </div>
-                            <div class="cleaning-method-card">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="method_isolation_forest" checked>
-                                    <label class="form-check-label" for="method_isolation_forest">
-                                        <strong>Isolation Forest</strong>
-                                        <small class="d-block text-muted">ML-based anomaly detection</small>
-                                    </label>
-                                </div>
-                            </div>
-                            <div class="cleaning-method-card">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="method_linear_regression">
-                                    <label class="form-check-label" for="method_linear_regression">
-                                        <strong>Linear Regression Outliers</strong>
-                                        <small class="d-block text-muted">Detect outliers based on regression residuals</small>
-                                    </label>
-                                </div>
-                            </div>
+                <!-- Data Profiling -->
+                <div class="col-lg-6">
+                    <div class="glass-card h-100">
+                        <div class="card-header-vortex">
+                            <h5><i class="fas fa-microscope"></i> Data Profiling</h5>
                         </div>
-                        <button class="btn btn-warning w-100 mb-3" onclick="cleanData()">
-                            <i class="fas fa-magic"></i> Clean Data
-                        </button>
-                        <div id="cleaningResults"></div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- EDA & KPIs -->
-            <div class="col-12 mb-4">
-                <div class="card">
-                    <div class="card-header">
-                        <h5 class="mb-0">
-                            <i class="fas fa-chart-bar"></i> EDA & KPI Extraction
-                        </h5>
-                    </div>
-                    <div class="card-body">
-                        <button class="btn btn-success w-100 mb-3" onclick="generateEDA()">
-                            <i class="fas fa-calculator"></i> Generate Analysis
-                        </button>
-                        <div id="edaResults"></div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Visualizations -->
-            <div class="col-12 mb-4">
-                <div class="card">
-                    <div class="card-header">
-                        <h5 class="mb-0">
-                            <i class="fas fa-chart-area"></i> Visualizations
-                        </h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <select class="form-select" id="vizType">
-                                    <option value="auto">Auto-Generate</option>
-                                    <option value="correlation">Correlation Heatmap</option>
-                                    <option value="distribution">Distribution</option>
-                                    <option value="time_series">Time Series</option>
-                                </select>
-                            </div>
-                            <div class="col-md-3">
-                                <select class="form-select" id="vizColumn" style="display: none;">
-                                    <option value="">Select Column</option>
-                                </select>
-                            </div>
-                            <div class="col-md-3">
-                                <button class="btn btn-info w-100" onclick="generateVisualization()">
-                                    <i class="fas fa-chart-line"></i> Generate
-                                </button>
-                            </div>
-                        </div>
-                        <div id="visualizationResults"></div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Conversational Data RAG -->
-            <div class="col-12 mb-4">
-                <div class="card">
-                    <div class="card-header">
-                        <h5 class="mb-0">
-                            <i class="fas fa-comments"></i> Ask About Your Data
-                            <span class="status-indicator status-inactive" id="chatStatus"></span>
-                            <small class="text-muted ms-2">No API keys needed - powered by local data analysis</small>
-                        </h5>
-                    </div>
-                    <div class="card-body">
-                        <!-- Quick Question Buttons -->
-                        <div class="mb-3">
-                            <small class="text-muted"><i class="fas fa-bolt"></i> Quick Questions:</small>
-                            <div class="mt-2 d-flex flex-wrap gap-2">
-                                <button class="btn btn-outline-light btn-sm" onclick="askQuickQuestion('What are the KPIs?')">📊 KPIs</button>
-                                <button class="btn btn-outline-light btn-sm" onclick="askQuickQuestion('Show me the data summary')">📋 Summary</button>
-                                <button class="btn btn-outline-light btn-sm" onclick="askQuickQuestion('What is the data quality?')">🔍 Quality</button>
-                                <button class="btn btn-outline-light btn-sm" onclick="askQuickQuestion('Show correlations')">🔗 Correlations</button>
-                                <button class="btn btn-outline-light btn-sm" onclick="askQuickQuestion('What are the trends?')">📈 Trends</button>
-                                <button class="btn btn-outline-light btn-sm" onclick="askQuickQuestion('Show distributions')">📊 Distributions</button>
-                                <button class="btn btn-outline-light btn-sm" onclick="askQuickQuestion('What columns exist?')">📂 Schema</button>
-                            </div>
-                        </div>
-                        
-                        <!-- Chat History -->
-                        <div class="chat-messages" id="chatMessages"></div>
-                        
-                        <!-- Question Input -->
-                        <div class="input-group mt-3">
-                            <textarea class="form-control" id="questionInput" rows="2" 
-                                      placeholder="Ask any question about your data... (e.g., 'What are the KPIs?', 'Show correlations', 'What is the average revenue?')"></textarea>
-                            <button class="btn btn-primary" onclick="askQuestion()">
-                                <i class="fas fa-paper-plane"></i>
+                        <div class="card-body-vortex">
+                            <button class="btn-vortex primary full" onclick="profileData()"
+                                style="margin-bottom: 1rem;">
+                                <i class="fas fa-search-plus"></i> Profile Data
                             </button>
+                            <div id="profilingResults"></div>
                         </div>
                     </div>
                 </div>
+
+                <!-- Data Cleaning -->
+                <div class="col-lg-6">
+                    <div class="glass-card h-100">
+                        <div class="card-header-vortex">
+                            <h5><i class="fas fa-broom"></i> Data Cleaning</h5>
+                        </div>
+                        <div class="card-body-vortex">
+                            <div id="cleaningMethodsSection" style="margin-bottom: 1rem;">
+                                <h6 style="color: var(--text-muted); margin-bottom: 0.5rem; font-size: 0.85rem;">
+                                    <i class="fas fa-sliders-h"></i> Cleaning Methods
+                                </h6>
+                                <div class="cleaning-method-card">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="method_handle_missing"
+                                            checked>
+                                        <label class="form-check-label" for="method_handle_missing">
+                                            <strong>Handle Missing Values</strong>
+                                            <small class="d-block">Drop high-missing columns, fill rest with
+                                                median/mode</small>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="cleaning-method-card">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="method_remove_duplicates"
+                                            checked>
+                                        <label class="form-check-label" for="method_remove_duplicates">
+                                            <strong>Remove Duplicates</strong>
+                                            <small class="d-block">Remove exact duplicate rows</small>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="cleaning-method-card">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="method_knn_impute" checked>
+                                        <label class="form-check-label" for="method_knn_impute">
+                                            <strong>KNN Imputation</strong>
+                                            <small class="d-block">K-Nearest Neighbors to fill missing numeric
+                                                values</small>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="cleaning-method-card">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="method_statistical_outliers"
+                                            checked>
+                                        <label class="form-check-label" for="method_statistical_outliers">
+                                            <strong>Statistical Outlier Removal</strong>
+                                            <small class="d-block">Z-score + IQR combined method</small>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="cleaning-method-card">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="method_isolation_forest"
+                                            checked>
+                                        <label class="form-check-label" for="method_isolation_forest">
+                                            <strong>Isolation Forest</strong>
+                                            <small class="d-block">ML-based anomaly detection</small>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="cleaning-method-card">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="method_linear_regression">
+                                        <label class="form-check-label" for="method_linear_regression">
+                                            <strong>Linear Regression Outliers</strong>
+                                            <small class="d-block">Detect outliers based on regression residuals</small>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            <button class="btn-vortex warning full" onclick="cleanData()" style="margin-bottom: 1rem;">
+                                <i class="fas fa-magic"></i> Clean Data
+                            </button>
+                            <div id="cleaningResults"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- EDA & KPIs -->
+                <div class="col-12">
+                    <div class="glass-card">
+                        <div class="card-header-vortex">
+                            <h5><i class="fas fa-chart-bar"></i> EDA & KPI Extraction</h5>
+                        </div>
+                        <div class="card-body-vortex">
+                            <button class="btn-vortex accent full" onclick="generateEDA()" style="margin-bottom: 1rem;">
+                                <i class="fas fa-calculator"></i> Generate Analysis
+                            </button>
+                            <div id="edaResults"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Visualizations -->
+                <div class="col-12">
+                    <div class="glass-card">
+                        <div class="card-header-vortex">
+                            <h5><i class="fas fa-chart-area"></i> Visualizations</h5>
+                        </div>
+                        <div class="card-body-vortex">
+                            <div class="row g-3 mb-3">
+                                <div class="col-md-5">
+                                    <select class="form-select" id="vizType">
+                                        <option value="auto">Auto-Generate All</option>
+                                        <option value="correlation">Correlation Heatmap</option>
+                                        <option value="distribution">Distribution</option>
+                                        <option value="time_series">Time Series</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <select class="form-select" id="vizColumn" style="display: none;">
+                                        <option value="">Select Column</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <button class="btn-vortex primary full" onclick="generateVisualization()">
+                                        <i class="fas fa-chart-line"></i> Generate
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="visualizationResults"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Conversational Data RAG -->
+                <div class="col-12">
+                    <div class="glass-card">
+                        <div class="card-header-vortex">
+                            <h5>
+                                <i class="fas fa-comments"></i> Ask About Your Data
+                                <span class="status-dot inactive" id="chatStatus" style="margin-left: 8px;"></span>
+                            </h5>
+                            <small style="color: var(--text-muted);">Powered by local data analysis — no API keys
+                                needed</small>
+                        </div>
+                        <div class="card-body-vortex">
+                            <div class="chat-container">
+                                <!-- Quick Questions -->
+                                <div class="quick-questions">
+                                    <button class="quick-btn" onclick="askQuickQuestion('What are the KPIs?')">📊
+                                        KPIs</button>
+                                    <button class="quick-btn" onclick="askQuickQuestion('Show me the data summary')">📋
+                                        Summary</button>
+                                    <button class="quick-btn" onclick="askQuickQuestion('What is the data quality?')">🔍
+                                        Quality</button>
+                                    <button class="quick-btn" onclick="askQuickQuestion('Show correlations')">🔗
+                                        Correlations</button>
+                                    <button class="quick-btn" onclick="askQuickQuestion('What are the trends?')">📈
+                                        Trends</button>
+                                    <button class="quick-btn" onclick="askQuickQuestion('Show distributions')">📊
+                                        Distributions</button>
+                                    <button class="quick-btn" onclick="askQuickQuestion('What columns exist?')">📂
+                                        Schema</button>
+                                </div>
+
+                                <!-- Chat Messages -->
+                                <div class="chat-messages" id="chatMessages"></div>
+
+                                <!-- Input -->
+                                <div class="chat-input-wrapper">
+                                    <textarea id="questionInput" rows="2"
+                                        placeholder="Ask any question about your data..."></textarea>
+                                    <button class="chat-send-btn" onclick="askQuestion()">
+                                        <i class="fas fa-paper-plane"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </div>
-    </div>
+
     </div>
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <!-- Custom Dashboard JS -->
     <script src="/static/dashboard_main.js"></script>
+
+    <script>
+        // Theme dropdown toggle
+        function toggleThemeDropdown() {
+            const dropdown = document.getElementById('themeDropdown');
+            dropdown.classList.toggle('show');
+        }
+
+        // Close dropdown when clicking elsewhere
+        document.addEventListener('click', function (e) {
+            const dropdown = document.getElementById('themeDropdown');
+            const btn = document.getElementById('themeToggleBtn');
+            if (!dropdown.contains(e.target) && !btn.contains(e.target)) {
+                dropdown.classList.remove('show');
+            }
+        });
+    </script>
 </body>
+
 </html>

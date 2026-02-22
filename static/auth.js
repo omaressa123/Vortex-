@@ -19,7 +19,7 @@ async function handleLogin(event) {
         if (response.ok) {
             status.innerText = "Login successful! Redirecting...";
             setTimeout(() => {
-                window.location.href = "/";
+                window.location.href = "/dashboard";
             }, 1000);
         } else {
             status.innerText = "Login failed: " + result.error;
@@ -51,7 +51,7 @@ async function handleSignin(event) {
         if (response.ok) {
             status.innerText = "Registration successful! Redirecting...";
             setTimeout(() => {
-                window.location.href = "/";
+                window.location.href = "/dashboard";
             }, 1000);
         } else {
             status.innerText = "Registration failed: " + result.error;

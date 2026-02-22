@@ -371,7 +371,7 @@ def get_financial_data():
 def dashboard():
     if 'user' not in session:
         return redirect('/login')
-    return send_from_directory('static', 'dashboard.html')
+    return render_template('dashboard_main.html')
 
 @app.route('/upload-multiple', methods=['POST'])
 def upload_multiple_files():

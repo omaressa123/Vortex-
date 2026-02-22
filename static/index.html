@@ -1,340 +1,117 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
-  <title>Vortex - AI Dashboard Generator</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vortex - AI Data Intelligence Platform</title>
   <link rel="stylesheet" href="/static/css/style.css">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
-  <style>
-    /* Add selection style */
-    .layout-card.selected {
-        border: 3px solid #f16363;
-        transform: scale(1.05);
-    }
-  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
+
 <body>
 
-<div class="hero">
-  <nav>
-    <h2>Vortex</h2>
-    <a href="/login"><button class="nav-btn">Login</button></a>
-  </nav>
+  <!-- Animated Background -->
+  <div class="vortex-bg"></div>
 
-  <div class="hero-content">
-    <h1 id="vortex" class="vortex-logo">
-      <span>V</span><span>O</span><span>R</span><span>T</span><span>E</span><span>X</span>
-    </h1>
-    <h1>Template-Driven Auto Dashboard</h1>
-    <p>
-      1. Select a Template below. <br>
-      2. Enter your API key. <br>
-      3. Upload your Data file. <br>
-      4. Test API key to generate Dashboard.
-    </p>
-    
-    <!-- Upload form -->
-    <div id="uploadSection" style="display:none; margin-top: 20px; background: rgba(0,0,0,0.5); padding: 20px; border-radius: 10px;">
-        <h3>Selected Template: <span id="selectedTemplateName">None</span></h3>
-        <form id="uploadForm">
-        <input type="text" id="apiKey" placeholder="Enter your API key" style="padding:8px; margin-bottom:12px; width: 100%; color: white; background: rgba(255,255,255,0.1); border: 1px solid #666; border-radius: 4px;">
-        <input type="file" id="fileInput" name="file" accept=".csv,.xlsx,.xls,.json" multiple style="padding:8px; margin-bottom:12px; color: white;">
-        <div style="margin-bottom:12px; font-size:12px; color:#999;">
-            <i class="fas fa-info-circle"></i> You can select multiple files to upload
+  <main class="container fade-in"
+    style="min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 4rem 0;">
+    <div class="glass-panel" style="max-width: 900px; width: 100%; padding: 4rem; text-align: center;">
+
+      <!-- Logo Section -->
+      <header class="auth-header">
+        <h1 class="logo gradient-text" style="font-size: 5rem; margin-bottom: 0.5rem; letter-spacing: -3px;">VORTEX</h1>
+        <p style="font-size: 1.25rem; color: var(--text-dim); max-width: 600px; margin: 0 auto 3rem;">
+          AI-Powered Data Intelligence Platform.<br>
+          <span style="color: var(--text-muted); font-size: 1.1rem;">Transform raw data into actionable insights with
+            the power of modern AI.</span>
+        </p>
+      </header>
+
+      <!-- Features Section -->
+      <div class="feature-grid">
+        <div class="glass-panel feature-card">
+          <div class="feature-icon">
+            <i class="fas fa-chart-line"></i>
+          </div>
+          <h3 style="margin-bottom: 0.75rem;">Smart Analytics</h3>
+          <p style="font-size: 0.875rem; color: var(--text-dim);">Advanced analysis with automated AI insights
+            generation.</p>
         </div>
-        <div id="selectedFiles" style="margin-bottom:12px; font-size:11px; color:#ccc; max-height: 60px; overflow-y: auto;"></div>
-        <br>
-        <button type="button" class="cta-btn" id="testApiBtn" onclick="testApiKey()">Test API Key</button>
-        <div id="status" style="margin-top:8px; font-size:13px; color:#f16363"></div>
-        </form>
-    </div>
 
-  </div>
-</div>
+        <div class="glass-panel feature-card">
+          <div class="feature-icon">
+            <i class="fas fa-broom"></i>
+          </div>
+          <h3 style="margin-bottom: 0.75rem;">Auto Cleaning</h3>
+          <p style="font-size: 0.875rem; color: var(--text-dim);">Intelligent preprocessing and anomaly detection.</p>
+        </div>
 
-<div class="layout-section">
-  <h3>Gallery: Choose Your Template</h3>
-  <div class="layout-grid">
-    <!-- Template 1 -->
-    <div class="layout-card" onclick="selectTemplate('1.jpeg', 'Executive Sales')">
-      <img src="/static/tamp/1.jpeg" alt="Executive Sales">
-      <button class="layout-btn">Select</button>
-    </div>
-    <!-- Template 2 -->
-    <div class="layout-card" onclick="selectTemplate('2.jpeg', 'Financial Overview')">
-      <img src="/static/tamp/2.jpeg" alt="Financial Overview">
-      <button class="layout-btn">Select</button>
-    </div>
-    <!-- Template 3 -->
-    <div class="layout-card" onclick="selectTemplate('3.jpeg', 'Marketing Performance')">
-      <img src="/static/tamp/3.jpeg" alt="Marketing Performance">
-      <button class="layout-btn">Select</button>
-    </div>
-     <!-- Template 4 -->
-     <div class="layout-card" onclick="selectTemplate('4.jpeg', 'HR Analytics')">
-        <img src="/static/tamp/4.jpeg" alt="HR Analytics">
-        <button class="layout-btn">Select</button>
+        <div class="glass-panel feature-card">
+          <div class="feature-icon">
+            <i class="fas fa-robot"></i>
+          </div>
+          <h3 style="margin-bottom: 0.75rem;">AI Assistant</h3>
+          <p style="font-size: 0.875rem; color: var(--text-dim);">Natural language interface for complex data queries.
+          </p>
+        </div>
+
+        <div class="glass-panel feature-card">
+          <div class="feature-icon">
+            <i class="fas fa-tachometer-alt"></i>
+          </div>
+          <h3 style="margin-bottom: 0.75rem;">Live Dashboard</h3>
+          <p style="font-size: 0.875rem; color: var(--text-dim);">Interactive visualizations with real-time updates.</p>
+        </div>
       </div>
-      <!-- Template 5 -->
-      <div class="layout-card" onclick="selectTemplate('5.jpeg', 'Operational Metrics')">
-        <img src="/static/tamp/5.jpeg" alt="Operational Metrics">
-        <button class="layout-btn">Select</button>
+
+      <!-- Authentication Section -->
+      <div style="margin-top: 4rem;">
+        <h2 style="margin-bottom: 2rem; font-size: 1.5rem; color: var(--text-main);">Ready to revolutionize your
+          workflow?</h2>
+        <div style="display: flex; gap: 1.5rem; justify-content: center; flex-wrap: wrap;">
+          <a href="/login" class="btn btn-primary" style="min-width: 180px; font-size: 1rem; padding: 1rem 2rem;">
+            <i class="fas fa-sign-in-alt"></i>
+            Get Started
+          </a>
+          <a href="/signin" class="btn btn-secondary" style="min-width: 180px; font-size: 1rem; padding: 1rem 2rem;">
+            <i class="fas fa-user-plus"></i>
+            Create Account
+          </a>
+        </div>
       </div>
-      <!-- Template 6 -->
-      <div class="layout-card" onclick="selectTemplate('6.jfif', 'Customer Insights')">
-        <img src="/static/tamp/6.jfif" alt="Customer Insights">
-        <button class="layout-btn">Select</button>
-      </div>
-  </div>
-</div>
 
-<script>
-  let selectedTemplateImage = null;
+      <!-- Footer Info -->
+      <footer style="margin-top: 4rem; padding-top: 2.5rem; border-top: 1px solid var(--card-border);">
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem;">
+          🔒 Enterprise-grade Security &bull; 🚀 Lightning Fast &bull; 🧠 AI Native
+        </p>
+        <span
+          style="background: rgba(99, 102, 241, 0.1); color: var(--primary); padding: 0.25rem 0.75rem; border-radius: 99px; font-size: 0.75rem; font-weight: 700;">
+          VERSION 2.0
+        </span>
+      </footer>
 
-  function selectTemplate(image, name) {
-      selectedTemplateImage = image;
-      document.getElementById('selectedTemplateName').innerText = name;
-      document.getElementById('uploadSection').style.display = 'block';
-      
-      // Highlight visual
-      document.querySelectorAll('.layout-card').forEach(c => c.classList.remove('selected'));
-      event.currentTarget.classList.add('selected');
-      
-      // Scroll to upload
-      document.getElementById('uploadSection').scrollIntoView({behavior: 'smooth'});
-  }
+    </div>
+  </main>
 
-  async function testAPIKey() {
-      const apiKey = document.getElementById("apiKey").value;
-      const apiTestResult = document.getElementById("apiTestResult");
-      const fileId = localStorage.getItem('file_id');
-      const templateImage = localStorage.getItem('template_image');
-      
-      if (!apiKey) {
-        apiTestResult.innerText = "Please enter an API key first";
-        apiTestResult.style.color = "#f16363";
-        return;
-      }
-      
-      apiTestResult.innerText = "Testing API key...";
-      apiTestResult.style.color = "#ffc107";
-      
-      try {
-        const requestBody = { api_key: apiKey };
-        
-        // Include file info if available for auto-generation
-        if (fileId && templateImage) {
-          requestBody.file_id = fileId;
-          requestBody.template_image = templateImage;
-        }
-        
-        const response = await fetch('/test-api', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(requestBody)
-        });
-        
-        const result = await response.json();
-        
-        if (response.ok && result.success) {
-          apiTestResult.innerText = "✅ API key working! " + result.api_test.response;
-          apiTestResult.style.color = "#28a745";
-          
-          // If dashboard was generated, redirect to dashboard
-          if (result.dashboard) {
-            apiTestResult.innerText = "✅ API key working! Generating dashboard...";
-            setTimeout(() => {
-              // Store dashboard data and redirect
-              localStorage.setItem('dashboard_data', JSON.stringify(result.dashboard));
-              window.location.href = "dashboard_template.html";
-            }, 1000);
-          }
-        } else {
-          apiTestResult.innerText = "❌ API key failed: " + (result.error || result.message);
-          apiTestResult.style.color = "#f16363";
-        }
-      } catch (e) {
-        apiTestResult.innerText = "❌ Network error: " + e.message;
-        apiTestResult.style.color = "#f16363";
-      }
-    }
-
-  async function testApiKey() {
-      const apiKey = document.getElementById("apiKey").value;
-      const fileInput = document.getElementById("fileInput");
-      const status = document.getElementById("status");
-
-      if (!apiKey) {
-        status.innerText = "Please enter an API key";
-        return;
-      }
-
-      if (!fileInput.files.length) {
-        status.innerText = "Please select at least one file";
-        return;
-      }
-
-      const files = Array.from(fileInput.files);
-      status.innerText = `Processing ${files.length} file(s)...`;
-
-      try {
-        const formData = new FormData();
-        formData.append("api_key", apiKey);
-        
-        // Add all files to FormData
-        files.forEach((file, index) => {
-          formData.append(`file_${index}`, file);
-        });
-
-        const response = await fetch("http://localhost:8000/test-api-multiple", {
-          method: "POST",
-          body: formData
-        });
-
-        const result = await response.json();
-
-        if (result.success) {
-          status.innerText = `API key is valid! Processing ${result.files_processed || 1} file(s)...`;
-          
-          // Show file processing details
-          if (result.total_files > 1) {
-            status.innerHTML += `<br><small>Combined ${result.total_rows?.toLocaleString() || 0} rows from ${result.files_processed} files</small>`;
-          }
-          
-          setTimeout(() => {
-            window.location.href = "/dashboard";
-          }, 1500);
-        } else {
-          status.innerText = "Invalid API key: " + result.error;
-        }
-      } catch (e) {
-        status.innerText = "Error testing API key: " + e.message;
-      }
-    }
-
-    // Display selected files
-    document.getElementById('fileInput').addEventListener('change', function(e) {
-        const files = Array.from(e.target.files);
-        const selectedFilesDiv = document.getElementById('selectedFiles');
-        
-        if (files.length === 0) {
-            selectedFilesDiv.innerHTML = '';
-        } else {
-            selectedFilesDiv.innerHTML = `
-                <div style="margin-bottom: 5px;">
-                    <strong>Selected files (${files.length}):</strong>
-                </div>
-                ${files.map((file, index) => `
-                    <div style="margin: 2px 0;">
-                        ${index + 1}. ${file.name} (${(file.size / 1024).toFixed(1)} KB)
-                    </div>
-                `).join('')}
-            `;
-        }
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      const cards = document.querySelectorAll('.feature-card');
+      cards.forEach((card, index) => {
+        card.style.opacity = '0';
+        card.style.transform = 'translateY(30px)';
+        setTimeout(() => {
+          card.style.transition = 'all 0.8s cubic-bezier(0.4, 0, 0.2, 1)';
+          card.style.opacity = '1';
+          card.style.transform = 'translateY(0)';
+        }, 150 * (index + 1));
+      });
     });
-
-    function compressDataForStorage(data) {
-      if (!data || data.length === 0) return data;
-      
-      const columns = Object.keys(data[0]);
-      const essentialColumns = [];
-      
-      // Keep only essential columns to save space
-      columns.forEach(col => {
-        const lowerCol = col.toLowerCase();
-        if (lowerCol.includes('date') || lowerCol.includes('time') ||
-            lowerCol.includes('revenue') || lowerCol.includes('sales') || lowerCol.includes('total') || lowerCol.includes('amount') ||
-            lowerCol.includes('cost') || lowerCol.includes('expense') ||
-            lowerCol.includes('customer') || lowerCol.includes('name') || lowerCol.includes('client') ||
-            lowerCol.includes('gender') || lowerCol.includes('sex') ||
-            lowerCol.includes('age') ||
-            lowerCol.includes('category') || lowerCol.includes('product') || lowerCol.includes('type')) {
-          essentialColumns.push(col);
-        }
-      });
-      
-      // If no essential columns found, keep first 5 columns
-      if (essentialColumns.length === 0) {
-        essentialColumns.push(...columns.slice(0, 5));
-      }
-      
-      return data.map(row => {
-        const compressed = {};
-        essentialColumns.forEach(col => {
-          if (row[col] !== undefined) {
-            compressed[col] = row[col];
-          }
-        });
-        return compressed;
-      });
-    }
-
-    function readCSV(file) {
-      return new Promise((resolve, reject) => {
-        Papa.parse(file, {
-          header: true,
-          dynamicTyping: true,
-          skipEmptyLines: true,
-          complete: function(results) {
-            if (results.errors.length > 0) {
-              console.warn('CSV parsing warnings:', results.errors);
-              // Continue with data even if there are warnings
-              if (results.data && results.data.length > 0) {
-                resolve(results.data.filter(row => Object.keys(row).length > 0));
-              } else {
-                reject(new Error('CSV parsing failed - no valid data found'));
-              }
-            } else {
-              resolve(results.data.filter(row => Object.keys(row).length > 0));
-            }
-          },
-          error: function(error) {
-            console.error('CSV parsing error:', error);
-            reject(new Error('Failed to parse CSV file: ' + error.message));
-          }
-        });
-      });
-    }
-
-    function readJSON(file) {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-          try {
-            const data = JSON.parse(e.target.result);
-            if (!data) {
-              reject(new Error('JSON file is empty'));
-            } else if (Array.isArray(data)) {
-              resolve(data.filter(row => row && typeof row === 'object'));
-            } else if (typeof data === 'object') {
-              resolve([data]);
-            } else {
-              reject(new Error('Invalid JSON format'));
-            }
-          } catch (error) {
-            console.error('JSON parsing error:', error);
-            reject(new Error('Failed to parse JSON file: ' + error.message));
-          }
-        };
-        reader.onerror = function() {
-          reject(new Error('Failed to read file'));
-        };
-        reader.readAsText(file);
-      });
-    }
-
-  // Logo animation
-  window.addEventListener("load", () => {
-    const logo = document.getElementById("vortex");
-    logo.classList.add("animate");
-    setTimeout(() => {
-      logo.classList.add("move-back");
-      logo.classList.remove("animate");
-    }, 2000);
-  });
-</script>
+  </script>
 
 </body>
+
 </html>
