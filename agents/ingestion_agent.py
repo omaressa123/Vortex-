@@ -7,12 +7,12 @@ class IngestionAgent:
 
     def load_file(self, uploaded_file):
         """
-        Load a file from a Streamlit UploadedFile object or a file path.
+        Load a file from a file path or file-like object.
         """
         if uploaded_file is None:
             return None
 
-        # Check if it's a Streamlit UploadedFile (has 'name' attribute)
+        # Check if it's a file-like object (has 'name' attribute)
         try:
             filename = uploaded_file.name
         except AttributeError:
