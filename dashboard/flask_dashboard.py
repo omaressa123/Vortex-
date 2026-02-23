@@ -13,6 +13,7 @@ from agents.profiling_agent import DataProfilingAgent
 from agents.cleaning_agent import CleaningAgent
 from agents.eda_agent import EDAAgent
 from agents.visualization_agent import VisualizationAgent
+from agents.insight_agent import InsightAgent
 from rag.rag_engine import DataRAGEngine
 
 dashboard_bp = Blueprint('dashboard', __name__, url_prefix='/dashboard')
@@ -34,32 +35,59 @@ def upload_data():
     if 'user' not in session:
         return jsonify({'error': 'Authentication required'}), 401
     
-    if 'file' not in request.files:
+    if not request.files:
         return jsonify({'error': 'No file uploaded'}), 400
     
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({'error': 'No file selected'}), 400
-    
     try:
-        # Save uploaded file
-        filename = secure_filename(file.filename)
-        file_path = os.path.join('uploads', filename)
-        file.save(file_path)
+        all_dfs = []
+        file_info_list = []
         
-        # Load and analyze data
-        ingestion = IngestionAgent()
-        df = ingestion.load_file(file_path)
+        # Get all uploaded files
+        for key in request.files:
+            files = request.files.getlist(key)
+            for file in files:
+                if file and file.filename != '':
+                    filename = secure_filename(file.filename)
+                    file_path = os.path.join('uploads', filename)
+                    file.save(file_path)
+                    
+                    # Load and analyze data
+                    ingestion = IngestionAgent()
+                    df_single = ingestion.load_file(file_path)
+                    all_dfs.append(df_single)
+                    
+                    file_info_list.append({
+                        'filename': filename,
+                        'file_path': file_path,
+                        'shape': list(df_single.shape)
+                    })
         
+        if not all_dfs:
+            return jsonify({'error': 'No valid files uploaded'}), 400
+            
+        # Merge dataframes
+        if len(all_dfs) > 1:
+            df = pd.concat(all_dfs, ignore_index=True)
+            # Create a combined file for session
+            combined_filename = f"combined_{secure_filename(file_info_list[0]['filename'])}"
+            combined_path = os.path.join('uploads', combined_filename)
+            df.to_csv(combined_path, index=False)
+            final_file_path = combined_path
+        else:
+            df = all_dfs[0]
+            final_file_path = file_info_list[0]['file_path']
+            
         # Initialize RAG with data
         rag_result = _dashboard_rag.load_data(df)
         
         # Store file info in session
         session['current_file'] = {
-            'filename': filename,
-            'file_path': file_path,
+            'filename': file_info_list[0]['filename'] if len(file_info_list) == 1 else "Multiple Files",
+            'file_path': final_file_path,
             'shape': list(df.shape),
-            'columns': df.columns.tolist()
+            'columns': df.columns.tolist(),
+            'files': file_info_list,
+            'is_multiple': len(all_dfs) > 1
         }
         
         return jsonify({
@@ -72,7 +100,9 @@ def upload_data():
         })
         
     except Exception as e:
-        return jsonify({'error': f'Error processing file: {str(e)}'}), 500
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': f'Error processing multiple files: {str(e)}'}), 500
 
 @dashboard_bp.route('/profile-data', methods=['POST'])
 def profile_data():
@@ -309,6 +339,34 @@ def ask_question():
         import traceback
         traceback.print_exc()
         return jsonify({'error': f'Error processing question: {str(e)}'}), 500
+
+@dashboard_bp.route('/advanced-insights', methods=['POST'])
+def get_advanced_insights():
+    """Generate advanced strategic business insights"""
+    if 'user' not in session:
+        return jsonify({'error': 'Authentication required'}), 401
+    
+    if 'current_file' not in session:
+        return jsonify({'error': 'No file loaded'}), 400
+    
+    try:
+        file_path = session['current_file'].get('cleaned_path') or session['current_file']['file_path']
+        
+        ingestion = IngestionAgent()
+        df = ingestion.load_file(file_path)
+        
+        agent = InsightAgent(df)
+        insights = agent.generate_insights()
+        
+        return jsonify({
+            'success': True,
+            'insights': insights
+        })
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': f'Error generating advanced insights: {str(e)}'}), 500
 
 def _serialize_kpis(kpis):
     """Convert KPIs to JSON-serializable format"""

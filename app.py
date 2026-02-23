@@ -13,6 +13,7 @@ from agents.ingestion_agent import IngestionAgent
 from agents.profiling_agent import DataProfilingAgent
 from agents.cleaning_agent import CleaningAgent
 from agents.mapper_agent import MapperAgent
+from agents.insight_agent import InsightAgent
 from rag.rag_engine import DataRAGEngine
 
 # Initialize database
@@ -241,6 +242,28 @@ def rag_data_summary():
         **summary
     })
 
+@app.route('/api/advanced-insights')
+def advanced_insights():
+    """Generate advanced strategic insights using InsightAgent"""
+    if data_rag_engine.df is None:
+        return jsonify({
+            'success': False,
+            'error': 'No data loaded for insights'
+        }), 400
+    
+    try:
+        agent = InsightAgent(data_rag_engine.df)
+        insights = agent.generate_insights()
+        return jsonify({
+            'success': True,
+            'insights': insights
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Error generating advanced insights: {str(e)}'
+        }), 500
+
 # ===== Financial Endpoints =====
 
 @app.route('/financial/add', methods=['POST'])
@@ -407,44 +430,75 @@ def upload_multiple_files():
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
-    """Upload a single file and initialize RAG"""
-    if 'file' not in request.files:
+    """Upload single or multiple files and initialize RAG"""
+    if not request.files:
         return jsonify({'error': 'No file provided'}), 400
     
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({'error': 'No file selected'}), 400
-    
     try:
-        filename = secure_filename(file.filename)
-        file_id = str(uuid.uuid4())
-        ext = os.path.splitext(filename)[1]
-        saved_filename = f"{file_id}{ext}"
-        file_path = os.path.join(app.config['UPLOAD_FOLDER'], saved_filename)
-        file.save(file_path)
+        all_dfs = []
+        file_details = []
         
-        # Load data
-        ingestion = IngestionAgent()
-        df = ingestion.load_file(file_path)
+        # Process all uploaded files
+        for key in request.files:
+            files = request.files.getlist(key)
+            for file in files:
+                if file and file.filename != '':
+                    filename = secure_filename(file.filename)
+                    file_id = str(uuid.uuid4())
+                    ext = os.path.splitext(filename)[1]
+                    saved_filename = f"{file_id}{ext}"
+                    file_path = os.path.join(app.config['UPLOAD_FOLDER'], saved_filename)
+                    file.save(file_path)
+                    
+                    # Load data
+                    ingestion = IngestionAgent()
+                    df_single = ingestion.load_file(file_path)
+                    all_dfs.append(df_single)
+                    
+                    file_details.append({
+                        'file_id': file_id,
+                        'filename': saved_filename,
+                        'original_name': file.filename,
+                        'shape': list(df_single.shape)
+                    })
         
-        # Initialize RAG with the data
+        if not all_dfs:
+            return jsonify({'error': 'No valid files uploaded'}), 400
+            
+        # Merge dataframes
+        if len(all_dfs) > 1:
+            df = pd.concat(all_dfs, ignore_index=True)
+            # Create a combined file for session
+            combined_filename = f"merged_{str(uuid.uuid4())}.csv"
+            combined_path = os.path.join(app.config['UPLOAD_FOLDER'], combined_filename)
+            df.to_csv(combined_path, index=False)
+            final_file_path = combined_path
+            final_original_name = f"{len(all_dfs)} files merged"
+        else:
+            df = all_dfs[0]
+            final_file_path = os.path.join(app.config['UPLOAD_FOLDER'], file_details[0]['filename'])
+            final_original_name = file_details[0]['original_name']
+        
+        # Initialize RAG with the combined data
         rag_result = data_rag_engine.load_data(df)
         
         # Store file info in session
         session['current_file'] = {
-            'filename': saved_filename,
-            'original_name': file.filename,
-            'file_path': file_path,
-            'file_id': file_id,
+            'filename': os.path.basename(final_file_path),
+            'original_name': final_original_name,
+            'file_path': final_file_path,
+            'file_id': file_details[0]['file_id'] if len(file_details) == 1 else "merged",
             'shape': list(df.shape),
-            'columns': df.columns.tolist()
+            'columns': df.columns.tolist(),
+            'is_multiple': len(all_dfs) > 1,
+            'files': file_details
         }
         
         return jsonify({
             'success': True,
-            'file_id': file_id,
-            'filename': saved_filename,
-            'original_name': file.filename,
+            'file_id': session['current_file']['file_id'],
+            'filename': session['current_file']['filename'],
+            'original_name': final_original_name,
             'shape': list(df.shape),
             'columns': df.columns.tolist(),
             'dtypes': df.dtypes.astype(str).to_dict(),
@@ -454,6 +508,8 @@ def upload_file():
         })
         
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'success': False,
             'error': str(e)
@@ -499,7 +555,7 @@ def process_file():
         quality_score = profiler.data_quality_score()
         overview = profiler.dataset_overview()
         
-        # 2. Cleaning (Methods-based, no API key needed)
+        # 2. Cleaning (Methods-based)
         cleaner = CleaningAgent()
         cleaned_df = cleaner.clean_data(df, profile, methods=cleaning_methods)
         cleaning_report = cleaner.get_cleaning_report()
@@ -564,7 +620,7 @@ def _serialize_kpis(kpis):
                 serialized[key] = value
     return serialized
 
-# ===== Heuristic Mapping (No LLM Required) =====
+#Heuristic Mapping 
 
 def heuristic_mapping(df, template_spec):
     """Map data columns to template without using LLM"""

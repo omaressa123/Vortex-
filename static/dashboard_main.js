@@ -407,7 +407,9 @@ async function uploadData() {
     }
 
     const formData = new FormData();
-    formData.append('file', fileInput.files[0]);
+    for (let i = 0; i < fileInput.files.length; i++) {
+        formData.append('file', fileInput.files[i]);
+    }
 
     updateStatus('uploadStatus', 'loading');
     resultDiv.innerHTML = '<div style="text-align:center; padding:1rem;"><div class="spinner-ring" style="margin:0 auto;"></div><p style="margin-top:0.5rem; color:var(--text-muted);">Uploading...</p></div>';
@@ -815,6 +817,210 @@ async function generateVisualization() {
         }
     } catch (error) {
         showNotification('Error during visualization', 'danger');
+    }
+
+    hideLoading();
+}
+
+// ============================================
+// CASH FLOW PREDICTION
+// ============================================
+async function addCashFlowData() {
+    const month = document.getElementById('cash_month').value;
+    const income = document.getElementById('cash_income').value;
+    const expenses = document.getElementById('cash_expenses').value;
+
+    if (!month || !income || !expenses) {
+        showNotification('Please fill all fields', 'warning');
+        return;
+    }
+
+    showLoading();
+
+    try {
+        const response = await fetch('/financial/add', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ month, income, expenses })
+        });
+
+        const result = await response.json();
+
+        if (response.ok && result.success) {
+            showNotification(result.message, 'success');
+            // Clear inputs
+            document.getElementById('cash_month').value = '';
+            document.getElementById('cash_income').value = '';
+            document.getElementById('cash_expenses').value = '';
+            // Refresh prediction if possible
+            predictCashFlow();
+        } else {
+            showNotification('Failed to add data: ' + (result.error || ''), 'danger');
+        }
+    } catch (error) {
+        showNotification('Error adding cash flow data', 'danger');
+    }
+
+    hideLoading();
+}
+
+async function predictCashFlow() {
+    showLoading();
+
+    try {
+        const response = await fetch('/financial/predict');
+        const result = await response.json();
+
+        const resultsDiv = document.getElementById('cashFlowResults');
+
+        if (response.ok && result.success) {
+            const pred = result.prediction;
+            resultsDiv.innerHTML = `
+                <div class="alert-vortex success" style="margin-bottom: 1rem;">
+                    <i class="fas fa-chart-line"></i>
+                    <div>
+                        <strong>Next Month Prediction:</strong><br>
+                        Income: $${pred.income.toLocaleString()}<br>
+                        Expenses: $${pred.expenses.toLocaleString()}<br>
+                        Profit: $${pred.profit.toLocaleString()}
+                    </div>
+                </div>
+                <div class="glass-card" style="padding: 1rem; background: rgba(124, 58, 237, 0.05);">
+                    <h6 style="font-size: 0.85rem; color: var(--primary-light);">
+                        <i class="fas fa-lightbulb"></i> AI Insight:
+                    </h6>
+                    <p style="margin: 0; font-size: 0.9rem; color: var(--text-secondary); line-height: 1.4;">
+                        ${result.insight}
+                    </p>
+                </div>
+            `;
+            showNotification('Cash flow prediction updated', 'success');
+        } else {
+            resultsDiv.innerHTML = `<div class="alert-vortex warning"><i class="fas fa-info-circle"></i> ${result.error || 'Prediction failed'}</div>`;
+        }
+    } catch (error) {
+        showNotification('Error predicting cash flow', 'danger');
+    }
+
+    hideLoading();
+}
+
+// ============================================
+// RAG DATA INSIGHTS
+// ============================================
+async function generateRAGInsights() {
+    showLoading();
+
+    try {
+        const response = await fetch('/api/rag/summary');
+        const result = await response.json();
+
+        const resultsDiv = document.getElementById('ragInsightsResults');
+
+        if (response.ok && result.success) {
+            let kpiHtml = '';
+            if (result.kpis) {
+                kpiHtml = '<h6 style="margin-top:1rem; color:var(--text-primary); font-size:0.9rem;">Key Metrics:</h6><div class="row g-2">';
+                Object.entries(result.kpis).forEach(([key, val]) => {
+                    let displayVal = val;
+                    if (typeof val === 'number') displayVal = val.toLocaleString();
+                    else if (typeof val === 'object') displayVal = JSON.stringify(val);
+
+                    kpiHtml += `
+                        <div class="col-6">
+                            <div style="padding: 8px 12px; background: var(--bg-glass); border: 1px solid var(--border-subtle); border-radius: 8px;">
+                                <small style="color: var(--text-muted); display: block; font-size: 0.7rem; text-transform: uppercase;">${key}</small>
+                                <strong style="color: var(--accent-light); font-size: 0.9rem;">${displayVal}</strong>
+                            </div>
+                        </div>
+                    `;
+                });
+                kpiHtml += '</div>';
+            }
+
+            const schema = result.summary.schema || {};
+            resultsDiv.innerHTML = `
+                <div class="alert-vortex info" style="margin-bottom: 1rem;">
+                    <i class="fas fa-info-circle"></i>
+                    <div>
+                        <strong>Data Summary:</strong><br>
+                        Rows: ${(schema.total_rows || 'N/A').toLocaleString()}<br>
+                        Columns: ${schema.total_columns || 'N/A'}
+                    </div>
+                </div>
+                ${kpiHtml}
+                <div class="glass-card mt-3" style="padding: 1rem; background: rgba(6, 182, 212, 0.05);">
+                    <h6 style="font-size: 0.85rem; color: var(--accent-light);">
+                        <i class="fas fa-robot"></i> Data Perspective:
+                    </h6>
+                    <p style="margin: 0; font-size: 0.9rem; color: var(--text-secondary); line-height: 1.4;">
+                        Your dataset contains ${schema.total_columns || 'N/A'} dimensions across ${(schema.total_rows || 'N/A').toLocaleString()} records. 
+                        The RAG engine has indexed this data into knowledge chunks for conversational analysis.
+                    </p>
+                </div>
+            `;
+            showNotification('AI Insights generated', 'success');
+        } else {
+            showNotification('Failed to generate insights', 'danger');
+        }
+    } catch (error) {
+        showNotification('Error generating insights', 'danger');
+    }
+
+    hideLoading();
+}
+
+async function generateAdvancedInsights() {
+    showLoading();
+
+    try {
+        const response = await fetch('/dashboard/advanced-insights', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        const result = await response.json();
+
+        const resultsDiv = document.getElementById('advancedInsightsResults');
+        if (!resultsDiv) {
+            console.error('advancedInsightsResults element not found');
+            showNotification('UI error: results container missing', 'danger');
+            hideLoading();
+            return;
+        }
+
+        if (response.ok && result.success) {
+            let html = '<div class="insights-container">';
+            result.insights.forEach(insight => {
+                if (insight.startsWith('🧠') || insight.startsWith('=')) {
+                    // Skip header or format differently
+                    if (insight.startsWith('🧠')) {
+                        html += `<h5 style="color: var(--primary-light); margin-top: 10px;">${insight}</h5>`;
+                    }
+                } else {
+                    const formattedInsight = insight
+                        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                        .replace(/📈/g, '<i class="fas fa-chart-line" style="color:var(--emerald-light);"></i>')
+                        .replace(/⚠️/g, '<i class="fas fa-exclamation-triangle" style="color:var(--amber);"></i>')
+                        .replace(/🔗/g, '<i class="fas fa-link" style="color:var(--accent-light);"></i>')
+                        .replace(/🎯/g, '<i class="fas fa-bullseye" style="color:var(--rose);"></i>')
+                        .replace(/🔮/g, '<i class="fas fa-magic" style="color:var(--primary-light);"></i>')
+                        .replace(/🚀/g, '<i class="fas fa-rocket" style="color:var(--emerald-light);"></i>');
+
+                    if (insight.startsWith('•') || insight.startsWith('   ')) {
+                        html += `<div style="margin-left: 20px; margin-bottom: 5px; color: var(--text-secondary); font-size: 0.9rem;">${formattedInsight}</div>`;
+                    } else {
+                        html += `<div style="margin-top: 15px; margin-bottom: 8px; color: var(--text-primary); font-weight: 600;">${formattedInsight}</div>`;
+                    }
+                }
+            });
+            html += '</div>';
+            resultsDiv.innerHTML = html;
+            showNotification('Advanced insights generated', 'success');
+        } else {
+            showNotification('Failed to generate advanced insights', 'danger');
+        }
+    } catch (error) {
+        showNotification('Error: ' + error.message, 'danger');
     }
 
     hideLoading();
