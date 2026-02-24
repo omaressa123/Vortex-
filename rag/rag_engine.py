@@ -20,6 +20,18 @@ try:
     from sentence_transformers import SentenceTransformer
     SENTENCE_TRANSFORMERS_AVAILABLE = True
     print("✅ Sentence transformers available for RAG")
+    
+    # Global model instance - load only once
+    _GLOBAL_EMBEDDINGS_MODEL = None
+    
+    def get_embeddings_model():
+        global _GLOBAL_EMBEDDINGS_MODEL
+        if _GLOBAL_EMBEDDINGS_MODEL is None:
+            print("🔄 Loading embedding model (CPU version)...")
+            _GLOBAL_EMBEDDINGS_MODEL = SentenceTransformer('all-MiniLM-L6-v2')
+            print("✅ Embedding model loaded")
+        return _GLOBAL_EMBEDDINGS_MODEL
+        
 except ImportError:
     SENTENCE_TRANSFORMERS_AVAILABLE = False
     print("❌ Sentence transformers not available. Install with: pip install sentence-transformers")
@@ -37,21 +49,11 @@ class DataRAGEngine:
     """
     
     def __init__(self):
-        self.embeddings_model = None
         self.data_documents = []
         self.data_embeddings = None
         self.data_summary = {}
         self.df = None
         self.kpis = {}
-        
-        if SENTENCE_TRANSFORMERS_AVAILABLE:
-            try:
-                print("🔄 Loading embedding model...")
-                self.embeddings_model = SentenceTransformer('all-MiniLM-L6-v2')
-                print("✅ Embedding model loaded")
-            except Exception as e:
-                print(f"❌ Error loading embedding model: {e}")
-                self.embeddings_model = None
     
     def load_data(self, df: pd.DataFrame):
         """
@@ -73,9 +75,10 @@ class DataRAGEngine:
         self._build_time_analysis_documents()
         
         # Create embeddings for retrieval
-        if self.embeddings_model and self.data_documents:
+        if SENTENCE_TRANSFORMERS_AVAILABLE and self.data_documents:
             texts = [doc['content'] for doc in self.data_documents]
-            self.data_embeddings = self.embeddings_model.encode(texts)
+            model = get_embeddings_model()
+            self.data_embeddings = model.encode(texts)
             print(f"✅ Data RAG initialized with {len(self.data_documents)} knowledge documents")
         else:
             print("⚠️ RAG running without embeddings (keyword search only)")
@@ -400,8 +403,9 @@ class DataRAGEngine:
             return []
         
         # Use embedding-based retrieval if available
-        if self.embeddings_model and self.data_embeddings is not None:
-            query_embedding = self.embeddings_model.encode([query])
+        if SENTENCE_TRANSFORMERS_AVAILABLE and self.data_embeddings is not None:
+            model = get_embeddings_model()
+            query_embedding = model.encode([query])
             similarities = np.dot(self.data_embeddings, query_embedding.T).flatten()
             top_indices = np.argsort(similarities)[-k:][::-1]
             return [self.data_documents[i] for i in top_indices]
