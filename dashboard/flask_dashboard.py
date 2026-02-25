@@ -5,6 +5,19 @@ import os
 import numpy as np
 from werkzeug.utils import secure_filename
 
+# Custom JSON encoder to handle NaN values
+class NpEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.integer):
+            return int(obj)
+        elif isinstance(obj, np.floating):
+            if np.isnan(obj):
+                return None  # Convert NaN to null for JSON compatibility
+            return float(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return super(NpEncoder, self).default(obj)
+
 # Add parent directory to path to allow imports
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -22,22 +35,6 @@ dashboard_bp = Blueprint('dashboard', __name__, url_prefix='/dashboard')
 # Dashboard-specific RAG engine instance
 _dashboard_rag = DataRAGEngine()
 
-def clean_for_json(data):
-    """Clean data to make it JSON serializable by replacing NaN with None"""
-    if isinstance(data, dict):
-        return {k: clean_for_json(v) for k, v in data.items()}
-    elif isinstance(data, list):
-        return [clean_for_json(item) for item in data]
-    elif isinstance(data, (np.integer, np.int64, np.int32)):
-        return int(data)
-    elif isinstance(data, (np.floating, np.float64, np.float32)):
-        if np.isnan(data):
-            return None
-        return float(data)
-    elif pd.isna(data):
-        return None
-    else:
-        return data
 
 @dashboard_bp.route('/')
 def dashboard_home():
@@ -108,9 +105,20 @@ def upload_data():
             'is_multiple': len(all_dfs) > 1
         }
         
+        # Convert DataFrame to dict, handling NaN values
+        data_preview = df.head().to_dict('records')
+        
+        # Convert NaN to None for JSON compatibility
+        for record in data_preview:
+            for key, value in record.items():
+                if pd.isna(value):
+                    record[key] = None
+                elif isinstance(value, (np.integer, np.floating)):
+                    record[key] = int(value) if isinstance(value, np.integer) else float(value)
+        
         return jsonify({
             'success': True,
-            'data_preview': clean_for_json(df.head().to_dict('records')),
+            'data_preview': data_preview,
             'shape': list(df.shape),
             'columns': list(df.columns),
             'dtypes': df.dtypes.astype(str).to_dict(),
@@ -214,9 +222,18 @@ def clean_data():
         session['current_file']['cleaned_path'] = cleaned_path
         session['current_file']['cleaned_shape'] = list(cleaned_df.shape)
         
+        # Handle NaN values in cleaned data preview
+        cleaned_data_preview = cleaned_df.head().to_dict('records')
+        for record in cleaned_data_preview:
+            for key, value in record.items():
+                if pd.isna(value):
+                    record[key] = None
+                elif isinstance(value, (np.integer, np.floating)):
+                    record[key] = int(value) if isinstance(value, np.integer) else float(value)
+        
         return jsonify({
             'success': True,
-            'cleaned_data_preview': clean_for_json(cleaned_df.head().to_dict('records')),
+            'cleaned_data_preview': cleaned_data_preview,
             'original_shape': list(df.shape),
             'cleaned_shape': list(cleaned_df.shape),
             'rows_removed': len(df) - len(cleaned_df),
@@ -253,9 +270,9 @@ def generate_eda():
         
         return jsonify({
             'success': True,
-            'numeric_summary': clean_for_json(numeric_summary),
-            'categorical_summary': clean_for_json(categorical_summary),
-            'kpis': clean_for_json(kpis),
+            'numeric_summary': numeric_summary,
+            'categorical_summary': categorical_summary,
+            'kpis': kpis,
             'shape': list(df.shape),
             'columns': list(df.columns)
         })

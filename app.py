@@ -108,22 +108,6 @@ def get_template_spec(template_name):
 # Import Dashboard Blueprint
 from dashboard.flask_dashboard import dashboard_bp
 
-def clean_for_json(data):
-    """Clean data to make it JSON serializable by replacing NaN with None"""
-    if isinstance(data, dict):
-        return {k: clean_for_json(v) for k, v in data.items()}
-    elif isinstance(data, list):
-        return [clean_for_json(item) for item in data]
-    elif isinstance(data, (np.integer, np.int64, np.int32)):
-        return int(data)
-    elif isinstance(data, (np.floating, np.float64, np.float32)):
-        if np.isnan(data):
-            return None
-        return float(data)
-    elif pd.isna(data):
-        return None
-    else:
-        return data
 
 app = Flask(__name__, static_folder='static', static_url_path='/static')
 CORS(app, 
@@ -512,6 +496,15 @@ def upload_file():
             'files': file_details
         }
         
+        # Handle NaN values in preview
+        preview_data = df.head(10).to_dict('records')
+        for record in preview_data:
+            for key, value in record.items():
+                if pd.isna(value):
+                    record[key] = None
+                elif isinstance(value, (np.integer, np.floating)):
+                    record[key] = int(value) if isinstance(value, np.integer) else float(value)
+        
         return jsonify({
             'success': True,
             'file_id': session['current_file']['file_id'],
@@ -519,8 +512,8 @@ def upload_file():
             'original_name': final_original_name,
             'shape': list(df.shape),
             'columns': df.columns.tolist(),
-            'dtypes': clean_for_json(df.dtypes.astype(str).to_dict()),
-            'preview': clean_for_json(df.head(10).to_dict('records')),
+            'dtypes': df.dtypes.astype(str).to_dict(),
+            'preview': preview_data,
             'rag_documents': rag_result['documents_created'],
             'kpis': _serialize_kpis(rag_result.get('kpis', {}))
         })
@@ -592,6 +585,15 @@ def process_file():
         session['current_file']['cleaned_filename'] = cleaned_filename
         session['current_file']['cleaned_shape'] = list(cleaned_df.shape)
         
+        # Handle NaN values in cleaned preview
+        cleaned_preview = cleaned_df.head(10).to_dict('records')
+        for record in cleaned_preview:
+            for key, value in record.items():
+                if pd.isna(value):
+                    record[key] = None
+                elif isinstance(value, (np.integer, np.floating)):
+                    record[key] = int(value) if isinstance(value, np.integer) else float(value)
+        
         return jsonify({
             'success': True,
             'profiling': {
@@ -604,7 +606,7 @@ def process_file():
                 'cleaned_shape': list(cleaned_df.shape),
                 'report': cleaning_report,
                 'cleaned_filename': cleaned_filename,
-                'preview': clean_for_json(cleaned_df.head(10).to_dict('records'))
+                'preview': cleaned_preview
             },
             'rag': {
                 'documents': rag_result['documents_created'],

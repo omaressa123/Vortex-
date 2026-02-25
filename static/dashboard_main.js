@@ -606,12 +606,12 @@ async function profileData() {
 
 function getCleaningMethods() {
     return {
-        'handle_missing': document.getElementById('method_handle_missing').checked,
-        'remove_duplicates': document.getElementById('method_remove_duplicates').checked,
-        'knn_impute': document.getElementById('method_knn_impute').checked,
-        'statistical_outliers': document.getElementById('method_statistical_outliers').checked,
-        'isolation_forest': document.getElementById('method_isolation_forest').checked,
-        'linear_regression_outliers': document.getElementById('method_linear_regression').checked,
+        'handle_missing': document.getElementById('method_handle_missing')?.checked || false,
+        'remove_duplicates': document.getElementById('method_remove_duplicates')?.checked || false,
+        'knn_impute': document.getElementById('method_knn_impute')?.checked || false,
+        'statistical_outliers': document.getElementById('method_statistical_outliers')?.checked || false,
+        'isolation_forest': document.getElementById('method_isolation_forest')?.checked || false,
+        'linear_regression_outliers': document.getElementById('method_linear_regression_outliers')?.checked || false,
         'z_score_threshold': 3.0,
         'iqr_multiplier': 1.5,
         'isolation_contamination': 0.01
@@ -770,8 +770,17 @@ function createKPICards(kpis) {
 // VISUALIZATION FUNCTIONS
 // ============================================
 async function generateVisualization() {
-    const vizType = document.getElementById('vizType').value;
-    const column = document.getElementById('vizColumn').value;
+    const vizTypeElement = document.getElementById('vizType');
+    const vizColumnElement = document.getElementById('vizColumn');
+    
+    // Handle case where elements don't exist
+    if (!vizTypeElement) {
+        console.warn('vizType element not found - visualization controls may not be available');
+        return;
+    }
+    
+    const vizType = vizTypeElement.value || 'auto';
+    const column = vizColumnElement ? vizColumnElement.value : null;
 
     showLoading();
 
@@ -826,9 +835,19 @@ async function generateVisualization() {
 // CASH FLOW PREDICTION
 // ============================================
 async function addCashFlowData() {
-    const month = document.getElementById('cash_month').value;
-    const income = document.getElementById('cash_income').value;
-    const expenses = document.getElementById('cash_expenses').value;
+    const monthElement = document.getElementById('cash_month');
+    const incomeElement = document.getElementById('cash_income');
+    const expensesElement = document.getElementById('cash_expenses');
+    
+    if (!monthElement || !incomeElement || !expensesElement) {
+        console.warn('Cash flow elements not found');
+        showNotification('Cash flow form not available', 'warning');
+        return;
+    }
+    
+    const month = monthElement.value;
+    const income = incomeElement.value;
+    const expenses = expensesElement.value;
 
     if (!month || !income || !expenses) {
         showNotification('Please fill all fields', 'warning');
@@ -849,9 +868,9 @@ async function addCashFlowData() {
         if (response.ok && result.success) {
             showNotification(result.message, 'success');
             // Clear inputs
-            document.getElementById('cash_month').value = '';
-            document.getElementById('cash_income').value = '';
-            document.getElementById('cash_expenses').value = '';
+            monthElement.value = '';
+            incomeElement.value = '';
+            expensesElement.value = '';
             // Refresh prediction if possible
             predictCashFlow();
         } else {
@@ -1030,12 +1049,23 @@ async function generateAdvancedInsights() {
 // CONVERSATIONAL DATA RAG
 // ============================================
 function askQuickQuestion(question) {
-    document.getElementById('questionInput').value = question;
-    askQuestion();
+    const questionInputElement = document.getElementById('questionInput');
+    if (questionInputElement) {
+        questionInputElement.value = question;
+        askQuestion();
+    } else {
+        console.warn('questionInput element not found - cannot set quick question');
+    }
 }
 
 async function askQuestion() {
-    const question = document.getElementById('questionInput').value.trim();
+    const questionInputElement = document.getElementById('questionInput');
+    if (!questionInputElement) {
+        console.warn('questionInput element not found');
+        return;
+    }
+    
+    const question = questionInputElement.value.trim();
 
     if (!question) {
         showNotification('Please enter a question', 'warning');
@@ -1044,7 +1074,7 @@ async function askQuestion() {
 
     updateStatus('chatStatus', 'loading');
     addChatMessage(question, 'user');
-    document.getElementById('questionInput').value = '';
+    questionInputElement.value = '';
 
     try {
         const response = await fetch('/dashboard/ask-question', {
@@ -1089,12 +1119,15 @@ function addChatMessage(message, type) {
 }
 
 // Enter key
-document.getElementById('questionInput').addEventListener('keydown', function (e) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        askQuestion();
-    }
-});
+const questionInputElement = document.getElementById('questionInput');
+if (questionInputElement) {
+    questionInputElement.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            askQuestion();
+        }
+    });
+}
 
 // ============================================
 // UTILITY FUNCTIONS
@@ -1151,15 +1184,20 @@ function logout() {
 }
 
 // Viz type change handler
-document.getElementById('vizType').addEventListener('change', function () {
-    const vizType = this.value;
-    const columnSelect = document.getElementById('vizColumn');
+const vizTypeElement = document.getElementById('vizType');
+if (vizTypeElement) {
+    vizTypeElement.addEventListener('change', function () {
+        const vizType = this.value;
+        const columnSelect = document.getElementById('vizColumn');
 
-    if (vizType === 'distribution' || vizType === 'time_series') {
-        columnSelect.style.display = 'block';
-        columnSelect.required = true;
-    } else {
-        columnSelect.style.display = 'none';
-        columnSelect.required = false;
-    }
-});
+        if (columnSelect) {
+            if (vizType === 'distribution' || vizType === 'time_series') {
+                columnSelect.style.display = 'block';
+                columnSelect.required = true;
+            } else {
+                columnSelect.style.display = 'none';
+                columnSelect.required = false;
+            }
+        }
+    });
+}
