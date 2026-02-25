@@ -2,6 +2,7 @@ from flask import Blueprint, render_template, request, jsonify, session
 import pandas as pd
 import json
 import os
+import numpy as np
 from werkzeug.utils import secure_filename
 
 # Add parent directory to path to allow imports
@@ -20,6 +21,23 @@ dashboard_bp = Blueprint('dashboard', __name__, url_prefix='/dashboard')
 
 # Dashboard-specific RAG engine instance
 _dashboard_rag = DataRAGEngine()
+
+def clean_for_json(data):
+    """Clean data to make it JSON serializable by replacing NaN with None"""
+    if isinstance(data, dict):
+        return {k: clean_for_json(v) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [clean_for_json(item) for item in data]
+    elif isinstance(data, (np.integer, np.int64, np.int32)):
+        return int(data)
+    elif isinstance(data, (np.floating, np.float64, np.float32)):
+        if np.isnan(data):
+            return None
+        return float(data)
+    elif pd.isna(data):
+        return None
+    else:
+        return data
 
 @dashboard_bp.route('/')
 def dashboard_home():
@@ -92,11 +110,12 @@ def upload_data():
         
         return jsonify({
             'success': True,
-            'data_preview': df.head().to_dict('records'),
+            'data_preview': clean_for_json(df.head().to_dict('records')),
             'shape': list(df.shape),
-            'columns': df.columns.tolist(),
+            'columns': list(df.columns),
             'dtypes': df.dtypes.astype(str).to_dict(),
-            'rag_documents': rag_result['documents_created']
+            'file_info': file_info_list,
+            'is_multiple': len(all_dfs) > 1
         })
         
     except Exception as e:
@@ -197,11 +216,11 @@ def clean_data():
         
         return jsonify({
             'success': True,
-            'cleaned_data_preview': cleaned_df.head().to_dict('records'),
+            'cleaned_data_preview': clean_for_json(cleaned_df.head().to_dict('records')),
             'original_shape': list(df.shape),
             'cleaned_shape': list(cleaned_df.shape),
             'rows_removed': len(df) - len(cleaned_df),
-            'columns_removed': len(df.columns) - len(cleaned_df.columns),
+            'columns_removed': list(set(df.columns) - set(cleaned_df.columns)),
             'cleaned_filename': cleaned_filename,
             'cleaning_report': cleaning_report
         })
@@ -234,9 +253,11 @@ def generate_eda():
         
         return jsonify({
             'success': True,
-            'numeric_summary': numeric_summary,
-            'categorical_summary': categorical_summary,
-            'kpis': kpis
+            'numeric_summary': clean_for_json(numeric_summary),
+            'categorical_summary': clean_for_json(categorical_summary),
+            'kpis': clean_for_json(kpis),
+            'shape': list(df.shape),
+            'columns': list(df.columns)
         })
         
     except Exception as e:
